@@ -1,0 +1,92 @@
+﻿@page "/lobby"
+@inject NavigationManager NavigationManager
+@inject RoomData RoomData
+@inject HttpClient Http
+@using TableTopSim.Shared
+@using DataLayer
+<h3>Room: @RoomData.RoomId</h3>
+
+@if (players == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <table class="table">
+        <tbody>
+            <tr>
+                <td>@RoomData.PlayerName <b>(You)</b></td>
+            </tr>
+            @foreach (var player in players)
+            {
+                @if (player.PlayerId != RoomData.PlayerId)
+                {
+                    <tr>
+                        <td>@player.Name</td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+
+    <br />
+
+    @if (RoomData.IsHost)
+    {
+        <button class="btn btn-primary" @onclick="OnStartGameClick">StartGame</button>
+    }
+}
+
+@code {
+
+    //ToDo: Limit Name to 100 characters
+
+    public Player[] players { get; set; } = null;
+    bool stopSearchingForPlayers = false;
+    protected override async Task OnInitializedAsync()
+    {
+        await GetPlayers();
+    }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await UpdatePlayers();
+    }
+
+    async Task GetPlayers()
+    {
+        await Task.Delay(1000);
+        players = await RoomDL.GetPlayers(Http, RoomData.RoomId);
+    }
+
+    async Task UpdatePlayers()
+    {
+        while (true)
+        {
+            await Task.Delay(2000);
+            lock (players)
+            {
+                if (stopSearchingForPlayers)
+                {
+                    break;
+                }
+            }
+            var newPlayers = await RoomDL.GetPlayers(Http, RoomData.RoomId);
+            lock (players)
+            {
+                players = newPlayers;
+            }
+            StateHasChanged();
+
+        }
+    }
+
+    async void OnStartGameClick()
+    {
+        lock (players)
+        {
+            stopSearchingForPlayers = true;
+        }
+        bool sucsessful = await RoomDL.StartGame(Http, RoomData.RoomId, RoomData.PlayerId);
+        NavigationManager.NavigateTo($"/game/{RoomData.PlayerId}/{RoomData.RoomId}/");
+    }
+}
