@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html>
 
 <head>
@@ -10,6 +10,7 @@
     <link href="css/app.css" rel="stylesheet" />
     <link href="manifest.json" rel="manifest" />
     <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png" />
+    <script src="_content/Blazor.Extensions.Canvas/blazor.extensions.canvas.js"></script>
 </head>
 
 <body>
@@ -22,6 +23,14 @@
     </div>
     <script src="_framework/blazor.webassembly.js"></script>
     <script>navigator.serviceWorker.register('service-worker.js');</script>
+
+    <script>MyDOMGetBoundingClientRect = (element) => { return element.getBoundingClientRect(); };</script>
+
+    <script>
+        window.SetFocusTo = (element) => {
+            element.focus();
+        };
+    </script>
 </body>
 
 </html>

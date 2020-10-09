@@ -35,13 +35,9 @@
     bool hasRendered = false;
     GameManager gameManager;
     ElementReference CardBack;
-    //CancellationTokenSource cts;
-    bool stop = false;
-    object lockObject = new object();
+    CancellationTokenSource cts = new CancellationTokenSource();
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        stop = false;
-        //cts = new CancellationTokenSource();
         NavigationManager.LocationChanged += OnLocationChanged;
         if (firstRender)
         {
@@ -53,34 +49,23 @@
         ElementReferences elementReferences = new ElementReferences() { CardBack = CardBack };
         gameManager = new GameManager(size, elementReferences, PlayerId, RoomId);
 
-        await Update();
+        await Task.Run(async () => await Update(cts.Token));
     }
     void OnLocationChanged(object sender, LocationChangedEventArgs args)
     {
-        lock (lockObject)
-        {
-            stop = true;
-            //cts.Cancel();
-        }
+        cts.Cancel();
     }
-    public async Task Update()
+    public async Task Update(CancellationToken ct)
     {
         Stopwatch stopwatch = new Stopwatch();
         stopwatch.Start();
         while (true)
         {
-            lock (lockObject)
-            {
-                if (stop)
-                {
-                    break;
-                }
-
-                gameManager.Update(context, stopwatch.Elapsed, stop);
-            }
+            if (ct.IsCancellationRequested) { break;  }
+            gameManager.Update(context, stopwatch.Elapsed, ct);
             long previousElapsedMilli = stopwatch.ElapsedMilliseconds;
             stopwatch.Restart();
-            await Task.Delay((int)Math.Max(0, 16 - previousElapsedMilli));
+            await Task.Delay((int)Math.Max(0, 16 - previousElapsedMilli), ct);
         }
     }
     void MouseUp(MouseEventArgs args)

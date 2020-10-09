@@ -63,7 +63,7 @@ RoomID:
     async void JoinRoomClick()
     {
         //validate room id and get player id
-        int? playerId = await RoomDL.CreatePlayerinRoom(Http, RoomData.PlayerName, roomID);
+        int? playerId = await RoomDL.CreatePlayerInRoom(Http, RoomData.PlayerName, roomID);
         if (playerId != null)
         {
             RoomData.PlayerId = playerId.Value;

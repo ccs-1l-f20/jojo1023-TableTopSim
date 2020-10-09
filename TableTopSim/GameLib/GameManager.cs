@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Numerics;
 using System.Text;
 using System.Text.Json.Serialization;
+using System.Threading;
 
 namespace GameLib
 {
@@ -44,7 +45,7 @@ namespace GameLib
             MouseState = MouseState.Hover;
             gameProgram = new GameProgram(this);
         }
-        public async void Update(Canvas2DContext context, TimeSpan elapsedTime, bool stop)
+        public async void Update(Canvas2DContext context, TimeSpan elapsedTime, CancellationToken ct)
         {
             MouseOnSprite = gameSprite.GameManagerUpdate(MousePos, MouseState, elapsedTime);
             OnUpdate?.Invoke(elapsedTime);

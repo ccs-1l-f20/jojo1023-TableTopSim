@@ -12,7 +12,7 @@ namespace DataLayer
     {
         public static async Task<PlayerAndRoomId> CreatePlayerAndRoom(HttpClient http, string playerName, int gameId)
         {
-            if(playerName.Length > 100)
+            if(playerName == null || playerName.Length > 100)
             {
                 return null;
             }
@@ -28,13 +28,13 @@ namespace DataLayer
             }
         }
 
-        public static async Task<int?> CreatePlayerinRoom(HttpClient http, string playerName, int roomId)
+        public static async Task<int?> CreatePlayerInRoom(HttpClient http, string playerName, int roomId)
         {
-            if (playerName.Length > 100)
+            if (playerName == null || playerName.Length > 100)
             {
                 return null;
             }
-            var response = await http.PostAsync($"api/Room/CreatePlayerinRoom/{playerName}/{roomId}", null);
+            var response = await http.PostAsync($"api/Room/CreatePlayerInRoom/{playerName}/{roomId}", null);
             if (response.IsSuccessStatusCode)
             {
                 string content = await response.Content.ReadAsStringAsync();
