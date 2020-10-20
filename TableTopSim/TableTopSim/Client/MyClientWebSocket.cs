@@ -55,7 +55,7 @@ namespace TableTopSim.Client
         }
         public async Task SendMessageAsync(ArraySegment<byte> message)
         {
-            await webSocket.SendAsync(message, WebSocketMessageType.Text, true, cts.Token);
+            await webSocket.SendAsync(message, WebSocketMessageType.Binary, true, cts.Token);
         }
 
         async Task ReceiveLoop()

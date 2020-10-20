@@ -26,12 +26,13 @@ namespace TableTopSim.Server
 
         public IConfiguration Configuration { get; }
         SqlConnection sqlConnection;
+        SqlConnectionStringBuilder connectionStringBuilder;
 
         // This method gets called by the runtime. Use this method to add services to the container.
         // For more information on how to configure your application, visit https://go.microsoft.com/fwlink/?LinkID=398940
         public void ConfigureServices(IServiceCollection services)
         {
-            SqlConnectionStringBuilder connectionStringBuilder = new SqlConnectionStringBuilder();
+            connectionStringBuilder = new SqlConnectionStringBuilder();
             connectionStringBuilder.IntegratedSecurity = true;
             connectionStringBuilder.DataSource = @"(localdb)\MSSQLLocalDB";
             connectionStringBuilder.InitialCatalog = "TableTopSimDB";
@@ -39,7 +40,10 @@ namespace TableTopSim.Server
 
             services.AddControllersWithViews();
             services.AddRazorPages();
-            services.AddScoped<SqlConnection>(sp => sqlConnection);
+            services.AddScoped<SqlConnection>(sp =>
+            {
+                return new SqlConnection(connectionStringBuilder.ConnectionString);
+            });
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

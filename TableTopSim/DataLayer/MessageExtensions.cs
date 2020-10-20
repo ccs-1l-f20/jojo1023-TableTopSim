@@ -38,5 +38,9 @@ namespace DataLayer
             bytes.AddRange(BitConverter.GetBytes((short)str.Length));
             bytes.AddRange(Encoding.UTF8.GetBytes(str));
         }
+        public static void AddIntBytes(List<byte> bytes, int i)
+        {
+            bytes.AddRange(BitConverter.GetBytes(i));
+        }
     }
 }

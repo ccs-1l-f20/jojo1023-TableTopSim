@@ -52,7 +52,7 @@ else
 
         var ws = GlobalData.CreateWebSocket(WebSocketUri);
         await ws.Connect();
-        var prId = await WebSocketMessages.CreateRoom(ws, playerName);// await ReTryer.Try(100, 5, async () => await WebSocketMessages.CreateRoom(ws, playerName));
+        var prId = await WebSocketMessages.CreateRoom(ws, playerName);
         if (prId == null)
         {
             GlobalData.ShowMessage("An Error Has Occured");
@@ -65,7 +65,10 @@ else
     async void JoinRoomClick()
     {
         //validate room id and get player id
-        int? playerId = await ReTryer.Try(100, 5, async () => await RoomDL.CreatePlayerInRoom(Http, playerName, roomID));
+        //int? playerId = await ReTryer.Try(100, 5, async () => await RoomDL.CreatePlayerInRoom(Http, playerName, roomID));
+        var ws = GlobalData.CreateWebSocket(WebSocketUri);
+        await ws.Connect();
+        int? playerId = await WebSocketMessages.JoinRoom(ws, roomID, playerName);
         if (playerId != null)
         {
             NavigationManager.NavigateTo($"Lobby/{roomID}/{playerId.Value}");

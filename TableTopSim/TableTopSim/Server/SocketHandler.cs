@@ -62,26 +62,8 @@ namespace TableTopSim.Server
                     messageBytes = messageBytes.Slice(9);
                     if (MessageFunctions.ContainsKey(msgType))
                     {
-                        //await webSocket.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes("Hello World")), result.MessageType, result.EndOfMessage, CancellationToken.None);
                         await MessageFunctions[msgType]?.Invoke(webSocket, messageId, messageBytes);
                     }
-                    //string message = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                    //message += " It Worked!!";
-
-                    //List<WebSocket> wsToRemove = new List<WebSocket>();
-                    //foreach (var ws in WebSockets)
-                    //{
-                    //    if (ws.State != WebSocketState.Open)
-                    //    {
-                    //        wsToRemove.Add(ws);
-                    //        continue;
-                    //    }
-                    //    await ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(message)), result.MessageType, result.EndOfMessage, CancellationToken.None);
-                    //}
-                    //foreach (var ws in wsToRemove)
-                    //{
-                    //    WebSockets.Remove(ws);
-                    //}
                 }
                 result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
             }
@@ -92,7 +74,6 @@ namespace TableTopSim.Server
             List<byte> bytes = new List<byte>();
             bytes.AddRange(BitConverter.GetBytes(messageId));
             bytes.Add((byte)messageType);
-            bytes.Add(255);
             bytes.Add((byte)(error ? 255 : 0));
             return bytes;
         }
@@ -157,7 +138,7 @@ namespace TableTopSim.Server
                 AddPlayerWS(playerId.Value, ws, roomId);
                 GameRooms[roomId].AddPlayerWS(playerId.Value, ws);
             }
-            await ws.SendAsync(new ArraySegment<byte>(sendBytes.ToArray()), WebSocketMessageType.Text, true, CancellationToken.None);
+            await ws.SendAsync(new ArraySegment<byte>(sendBytes.ToArray()), WebSocketMessageType.Binary, true, CancellationToken.None);
         }
         #endregion
     }
