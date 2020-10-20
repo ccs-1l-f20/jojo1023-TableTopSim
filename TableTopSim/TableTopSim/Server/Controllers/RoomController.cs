@@ -23,6 +23,10 @@ namespace TableTopSim.Server.Controllers
         [HttpPost("CreatePlayerAndRoom/{playerName}")]
         public async Task<PlayerAndRoomId> CreatePlayerAndRoom(string playerName)
         {
+            return await CreatePlayerAndRoom(connection, playerName);
+        }
+        public static async Task<PlayerAndRoomId> CreatePlayerAndRoom(SqlConnection connection, string playerName)
+        {
             SqlCommand command = new SqlCommand("uspCreatePlayerAndRoom", connection) { CommandType = CommandType.StoredProcedure };
             command.Parameters.AddWithValue("@PlayerName", playerName);
 
@@ -40,9 +44,12 @@ namespace TableTopSim.Server.Controllers
             return retVal;
         }
 
-
         [HttpPost("CreatePlayerInRoom/{playerName}/{roomId}")]
         public async Task<int?> CreatePlayerInRoom(string playerName, int roomId)
+        {
+            return await CreatePlayerInRoom(connection, playerName, roomId);
+        }
+        public static async Task<int?> CreatePlayerInRoom(SqlConnection connection, string playerName, int roomId)
         {
             SqlCommand command = new SqlCommand("uspCreatePlayerInRoom", connection) { CommandType = CommandType.StoredProcedure };
             command.Parameters.AddWithValue("@PlayerName", playerName);
@@ -87,11 +94,11 @@ namespace TableTopSim.Server.Controllers
 
             var dr = await command.ExecuteReaderAsync();
             Player p = null;
-            if(await dr.ReadAsync())
+            if (await dr.ReadAsync())
             {
                 int? roomId = SqlExtensions.GetNullableSqlVal<int>(dr["RoomId"]);
                 bool isHost = false;
-                if(roomId != null)
+                if (roomId != null)
                 {
                     isHost = playerId == (int)dr["HostPlayerId"];
                 }

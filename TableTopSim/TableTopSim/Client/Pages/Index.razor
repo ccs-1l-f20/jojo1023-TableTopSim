@@ -2,66 +2,6 @@
 @using System.Threading;
 @using System.Net.WebSockets;
 @using System.Text;
-@inject Uri WebSocketUri
-
 <h1>Hello, Welcome To Table-Top Sim</h1>
 
 <RoomPicker />
-<br />
-@if (webSocket.State == WebSocketState.Open)
-{
-    <form @onsubmit="@SendMessageAsync">
-        Message: <input @bind="@message" />
-        <button type="submit">Send</button>
-    </form>
-
-    <pre>@log</pre>
-}
-
-@code{
-    System.Threading.CancellationTokenSource disposalTokenSource = new CancellationTokenSource();
-    System.Net.WebSockets.ClientWebSocket webSocket = new ClientWebSocket();
-    string message = "Hello, websocket!";
-    string log = "";
-
-    protected override async Task OnInitializedAsync()
-    {
-        System.Diagnostics.Debug.WriteLine("Init");// echo.websocket.org
-        await webSocket.ConnectAsync(WebSocketUri, disposalTokenSource.Token);
-        System.Diagnostics.Debug.WriteLine("Connect");
-        _ = ReceiveLoop();
-        System.Diagnostics.Debug.WriteLine("ReceivedLoop");
-    }
-
-    async Task SendMessageAsync()
-    {
-        log += $"Sending: {message}\n";
-        var dataToSend = new ArraySegment<byte>(Encoding.UTF8.GetBytes(message));
-        await webSocket.SendAsync(dataToSend, WebSocketMessageType.Text, true, disposalTokenSource.Token);
-    }
-
-    async Task ReceiveLoop()
-    {
-        System.Diagnostics.Debug.WriteLine("InReceivedLoop");
-        var buffer = new ArraySegment<byte>(new byte[1024]);
-        while (!disposalTokenSource.IsCancellationRequested)
-        {
-            // Note that the received block might only be part of a larger message. If this applies in your scenario,
-            // check the received.EndOfMessage and consider buffering the blocks until that property is true.
-            // Or use a higher-level library such as SignalR.
-
-            System.Diagnostics.Debug.WriteLine("Pre Recieved");
-            var received = await webSocket.ReceiveAsync(buffer, disposalTokenSource.Token);
-            System.Diagnostics.Debug.WriteLine("Post Recieved");
-            var receivedAsText = Encoding.UTF8.GetString(buffer.Array, 0, received.Count);
-            log += $"Received: {receivedAsText}\n";
-            StateHasChanged();
-        }
-    }
-
-    public void Dispose()
-    {
-        disposalTokenSource.Cancel();
-        _ = webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Bye", CancellationToken.None);
-    }
-}

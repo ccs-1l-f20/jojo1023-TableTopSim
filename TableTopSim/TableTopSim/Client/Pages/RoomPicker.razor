@@ -4,6 +4,8 @@
 @inject NavigationManager NavigationManager
 @inject HttpClient Http
 @inject GlobalData GlobalData
+@inject Uri WebSocketUri
+
 
 <TextEdit Text="@playerName" TextChanged="NameChange" MaxLength="100" Placeholder="Name" Style="width:300px" />
 
@@ -45,7 +47,12 @@ else
     async void NewRoomClick()
     {
         //generate room and get player id
-        var prId = await ReTryer.Try(100, 5, async () => await RoomDL.CreatePlayerAndRoom(Http, playerName));
+
+        //var prId = await ReTryer.Try(100, 5, async () => await RoomDL.CreatePlayerAndRoom(Http, playerName));
+
+        var ws = GlobalData.CreateWebSocket(WebSocketUri);
+        await ws.Connect();
+        var prId = await WebSocketMessages.CreateRoom(ws, playerName);// await ReTryer.Try(100, 5, async () => await WebSocketMessages.CreateRoom(ws, playerName));
         if (prId == null)
         {
             GlobalData.ShowMessage("An Error Has Occured");

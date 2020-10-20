@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace TableTopSim.Client
@@ -9,6 +10,8 @@ namespace TableTopSim.Client
     {
         public event Action<string> OnShowMessage;
         public event Func<Task> OnBrowserResize;
+        public MyClientWebSocket WebSocket;
+        public CancellationTokenSource WebSocketCts;
         public void ShowMessage(string message)
         {
             OnShowMessage?.Invoke(message);
@@ -29,6 +32,14 @@ namespace TableTopSim.Client
             {
                 await OnBrowserResize.Invoke();
             }
+        }
+        public MyClientWebSocket CreateWebSocket(Uri uri)
+        {
+            if(WebSocketCts != null) { WebSocketCts.Cancel(); }
+            WebSocketCts = new CancellationTokenSource();
+            if(WebSocket != null) { WebSocket.Close(); }
+            WebSocket = new MyClientWebSocket(WebSocketCts, uri);
+            return WebSocket;
         }
     }
 }
