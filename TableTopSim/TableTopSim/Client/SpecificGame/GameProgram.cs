@@ -1,13 +1,13 @@
 ﻿using GameLib;
 using GameLib.Sprites;
 using Microsoft.AspNetCore.Components;
-using Microsoft.AspNetCore.Components.Web;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Numerics;
-using System.Text;
+using System.Threading.Tasks;
 
-namespace GameLib
+namespace TableTopSim.Client.SpecificGame
 {
     public class GameProgram
     {
@@ -19,17 +19,24 @@ namespace GameLib
         TimeSpan totalTime = new TimeSpan(0);
         Sprite selectedSprite = null;
         Vector2 selectionOffset;
-        internal GameProgram(GameManager manager)
+        ElementReference cardBack, king, queen;
+        internal GameProgram(GameManager manager, 
+            ElementReference cardBack, ElementReference king, ElementReference queen)
         {
             this.manager = manager;
+            this.cardBack = cardBack;
+            this.king = king;
+            this.queen = queen;
 
             rectSprite = new RectSprite(new Vector2(200, 200), new Vector2(100, 200), new Color(0, 0, 255), new Vector2(50, 100), 0);
 
             manager.AddSprite(rectSprite);
             manager.AddSprite(childSprite = new RectSprite(new Vector2(200, 200), new Vector2(10, 10), new Color(255, 0, 255), new Vector2(0, 0), 45));
-            manager.AddSprite(imageSprite = new ImageSprite(new Vector2(300, 300), manager.ElementReferences.CardBack, new Vector2(170, 235), new Vector2(170, 235)/2));
-
+            manager.AddSprite(imageSprite = new ImageSprite(new Vector2(300, 300), cardBack, new Vector2(170, 235), new Vector2(170, 235) / 2));
+            manager.AddSprite(imageSprite = new ImageSprite(new Vector2(100, 50), king, new Vector2(100, 100), new Vector2(100, 100) / 2));
+            manager.AddSprite(imageSprite = new ImageSprite(new Vector2(250, 50), queen, new Vector2(100, 100), new Vector2(100, 100) / 2));
             //string test = manager.JsonSerializeSprites();
+            
 
 
             //manager.DataLayer.AddData(dataObjects, dataRelationships, false);
@@ -73,12 +80,12 @@ namespace GameLib
 
         private void MouseDown()
         {
-            if(selectedSprite != null)
+            if (selectedSprite != null)
             {
                 selectedSprite.Scale /= 1.1f;
                 selectedSprite = null;
             }
-            else if(manager.MouseOnSprite != null)
+            else if (manager.MouseOnSprite != null)
             {
                 selectedSprite = manager.MouseOnSprite;
                 selectionOffset = MousePos - selectedSprite.Position;
@@ -94,9 +101,9 @@ namespace GameLib
         {
             totalTime += elapsedTime;
 
-            if(selectedSprite != null)
+            if (selectedSprite != null)
             {
-                selectedSprite.Position = manager.MousePos-selectionOffset;
+                selectedSprite.Position = manager.MousePos - selectionOffset;
             }
             //rectSprite.Scale += new Vector2(0.001f, 0.001f);
             //rectSprite.Rotation += 0.1f;

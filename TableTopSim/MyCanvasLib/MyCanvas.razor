@@ -1,0 +1,10 @@
+﻿@inherits MyCanvasClass
+
+@if (Visible)
+{
+    <canvas id="@Id" width="@Width" height="@Height" @ref="_canvasRef" style="visibility:visible;"></canvas>
+}
+else
+{
+    <canvas id="@Id" width="@Width" height="@Height" @ref="_canvasRef" style="visibility:hidden;width:1px;height:1px"></canvas>
+}

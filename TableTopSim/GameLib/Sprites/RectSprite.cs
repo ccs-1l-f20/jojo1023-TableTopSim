@@ -1,4 +1,4 @@
-﻿using Blazor.Extensions.Canvas.Canvas2D;
+﻿using MyCanvasLib;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -19,7 +19,7 @@ namespace GameLib.Sprites
             Color = color;
             Size = size;
         }
-        protected override async Task OverideDraw(Canvas2DContext context)
+        protected override async Task OverideDraw(MyCanvas2DContext context)
         {
             await context.SetFillStyleAsync(Color.ToString());
             await context.FillRectAsync(-Origin.X, -Origin.Y, Size.X, Size.Y);

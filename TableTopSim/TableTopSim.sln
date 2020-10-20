@@ -9,9 +9,11 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TableTopSim.Client", "Table
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TableTopSim.Shared", "TableTopSim\Shared\TableTopSim.Shared.csproj", "{57DDA8E2-DFB5-4CDA-84D4-6D5D6F5299D3}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GameLib", "GameLib\GameLib.csproj", "{76139E08-4ACE-4806-A946-B0E50E984441}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GameLib", "GameLib\GameLib.csproj", "{76139E08-4ACE-4806-A946-B0E50E984441}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DataLayer", "DataLayer\DataLayer.csproj", "{EEA24713-EB04-4F9B-92DF-D4A0B9E1D7C6}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DataLayer", "DataLayer\DataLayer.csproj", "{EEA24713-EB04-4F9B-92DF-D4A0B9E1D7C6}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MyCanvasLib", "MyCanvasLib\MyCanvasLib.csproj", "{17CD6548-D5A4-4EFA-A958-BEE103AF1DE4}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -39,6 +41,10 @@ Global
 		{EEA24713-EB04-4F9B-92DF-D4A0B9E1D7C6}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{EEA24713-EB04-4F9B-92DF-D4A0B9E1D7C6}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{EEA24713-EB04-4F9B-92DF-D4A0B9E1D7C6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{17CD6548-D5A4-4EFA-A958-BEE103AF1DE4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{17CD6548-D5A4-4EFA-A958-BEE103AF1DE4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{17CD6548-D5A4-4EFA-A958-BEE103AF1DE4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{17CD6548-D5A4-4EFA-A958-BEE103AF1DE4}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

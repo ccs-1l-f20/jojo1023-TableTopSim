@@ -1,5 +1,5 @@
-﻿using Blazor.Extensions.Canvas.Canvas2D;
-using Microsoft.AspNetCore.Components;
+﻿using Microsoft.AspNetCore.Components;
+using MyCanvasLib;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -24,7 +24,7 @@ namespace GameLib.Sprites
             SourceRectangle = sourceRectangle;
             Size = size;
         }
-        protected override async Task OverideDraw(Canvas2DContext context)
+        protected override async Task OverideDraw(MyCanvas2DContext context)
         {
             //await context.SetFillStyleAsync(Color.ToString());
             //await context.FillRectAsync(-Origin.X, -Origin.Y, Size.X, Size.Y);

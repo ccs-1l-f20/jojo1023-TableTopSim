@@ -1,10 +1,11 @@
-﻿@page "/lobby"
+﻿@page "/Lobby/{RoomId:int}/{PlayerId:int}"
 @inject NavigationManager NavigationManager
-@inject RoomData RoomData
 @inject HttpClient Http
+@inject GlobalData GlobalData
 @using TableTopSim.Shared
 @using DataLayer
-<h3>Room: @RoomData.RoomId</h3>
+@using System.Threading
+<h3>Room: @RoomId</h3>
 
 @if (players == null)
 {
@@ -12,81 +13,104 @@
 }
 else
 {
-    <table class="table">
-        <tbody>
-            <tr>
-                <td>@RoomData.PlayerName <b>(You)</b></td>
-            </tr>
+    <Table>
+        <TableBody>
+            <TableRow>
+                <TableRowCell>@thisPlayer.Name <b>(You)</b></TableRowCell>
+            </TableRow>
             @foreach (var player in players)
             {
-                @if (player.PlayerId != RoomData.PlayerId)
+                @if (player.PlayerId != PlayerId)
                 {
-                    <tr>
-                        <td>@player.Name</td>
-                    </tr>
+                    <TableRow>
+                        <TableRowCell>@player.Name</TableRowCell>
+                    </TableRow>
                 }
             }
-        </tbody>
-    </table>
+        </TableBody>
+    </Table>
 
     <br />
 
-    @if (RoomData.IsHost)
+    @if (thisPlayer.IsHost)
     {
-        <button class="btn btn-primary" @onclick="OnStartGameClick">StartGame</button>
+        <Button Clicked="OnStartGameClick" Color="Color.Primary">Start Game</Button>
     }
 }
 
 @code {
-
-    //ToDo: Limit Name to 100 characters
+    [Parameter]
+    public int RoomId { get; set; }
+    [Parameter]
+    public int PlayerId { get; set; }
 
     public Player[] players { get; set; } = null;
-    bool stopSearchingForPlayers = false;
-    protected override async Task OnInitializedAsync()
+    Player thisPlayer = null;
+    CancellationTokenSource cts = new CancellationTokenSource();
+    protected override void OnInitialized()
     {
-        await GetPlayers();
+        NavigationManager.LocationChanged += OnLocationChanged;
+        _ = UpdatePlayers(cts.Token);
     }
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    void OnLocationChanged(object sender, LocationChangedEventArgs args)
     {
-        await UpdatePlayers();
-    }
-
-    async Task GetPlayers()
-    {
-        await Task.Delay(1000);
-        players = await RoomDL.GetPlayers(Http, RoomData.RoomId);
+        cts.Cancel();
     }
 
-    async Task UpdatePlayers()
+    async Task UpdatePlayers(CancellationToken ct)
     {
+        thisPlayer = await ReTryer.Try(100, 5, async () => await RoomDL.GetPlayerRoom(Http, PlayerId));
+        if (thisPlayer == null)
+        {
+            GlobalData.ShowMessage($"The Player Does Not Exist");
+            cts.Cancel();
+            NavigationManager.NavigateTo("");
+            return;
+        }
+        else if(thisPlayer.RoomId == null)
+        {
+            GlobalData.ShowMessage($"The Player Is Not In A Room");
+            cts.Cancel();
+            NavigationManager.NavigateTo("");
+            return;
+        }
+        else if(thisPlayer.RoomId != RoomId)
+        {
+            GlobalData.ShowMessage($"The Player Is Not In Room: {RoomId}");
+            cts.Cancel();
+            NavigationManager.NavigateTo("");
+            return;
+        }
         while (true)
         {
-            await Task.Delay(2000);
-            lock (players)
+            if (ct.IsCancellationRequested) { break; }
+            Player[] newPlayers = await ReTryer.Try(100, 3, async ()=> await RoomDL.GetPlayers(Http, RoomId));
+            if(newPlayers == null)
             {
-                if (stopSearchingForPlayers)
-                {
-                    break;
-                }
+                GlobalData.ShowMessage($"An Error Has Occured");
             }
-            var newPlayers = await RoomDL.GetPlayers(Http, RoomData.RoomId);
-            lock (players)
+            else
             {
                 players = newPlayers;
+                StateHasChanged();
             }
-            StateHasChanged();
 
+
+            await Task.Delay(1000, ct);
         }
     }
 
     async void OnStartGameClick()
     {
-        lock (players)
+        cts.Cancel();
+        bool sucsessful = await ReTryer.Try(100, 5, async () => await RoomDL.StartGame(Http, RoomId, PlayerId));
+        if (sucsessful)
         {
-            stopSearchingForPlayers = true;
+            NavigationManager.NavigateTo($"/Game/{RoomId}/{PlayerId}");
         }
-        bool sucsessful = await RoomDL.StartGame(Http, RoomData.RoomId, RoomData.PlayerId);
-        NavigationManager.NavigateTo($"/game/{RoomData.PlayerId}/{RoomData.RoomId}/");
+        else
+        {
+            GlobalData.ShowMessage($"An Error Has Occured");
+        }
     }
 }

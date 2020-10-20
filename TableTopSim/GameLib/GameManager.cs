@@ -1,7 +1,7 @@
-﻿using Blazor.Extensions.Canvas.Canvas2D;
+﻿
 using GameLib.Sprites;
-using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
+using MyCanvasLib;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -9,6 +9,7 @@ using System.Numerics;
 using System.Text;
 using System.Text.Json.Serialization;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace GameLib
 {
@@ -26,26 +27,24 @@ namespace GameLib
         Size size;
         public long Width => size.Width;
         public long Height => size.Height;
-        GameProgram gameProgram;
+        //GameProgram gameProgram;
         public MouseState MouseState { get; private set; }
-        public ElementReferences ElementReferences { get; }
         public KeyboardState Keyboard { get; }
         public Sprite MouseOnSprite { get; private set; }
         public int PlayerId { get; }
         public int RoomId { get; }
-        public GameManager(Size size, ElementReferences elementReferences,  int playerId, int roomId)
+        public GameManager(Size size, int playerId, int roomId)
         {
             PlayerId = playerId;
             RoomId = roomId;
             MouseOnSprite = null;
             Keyboard = new KeyboardState();
-            ElementReferences = elementReferences;
             gameSprite = new EmptySprite(Vector2.Zero, Vector2.One, Vector2.Zero, 0);
             this.size = size;
             MouseState = MouseState.Hover;
-            gameProgram = new GameProgram(this);
+            //gameProgram = new GameProgram(this);
         }
-        public async void Update(Canvas2DContext context, TimeSpan elapsedTime, CancellationToken ct)
+        public async Task Update(MyCanvas2DContext context, TimeSpan elapsedTime, CancellationToken ct)
         {
             MouseOnSprite = gameSprite.GameManagerUpdate(MousePos, MouseState, elapsedTime);
             OnUpdate?.Invoke(elapsedTime);
@@ -119,10 +118,6 @@ namespace GameLib
             Width = width;
             Height = height;
         }
-    }
-    public class ElementReferences
-    {
-        public ElementReference CardBack;
     }
 
 }

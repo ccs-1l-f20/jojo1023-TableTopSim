@@ -7,6 +7,13 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using System.Linq;
 using System.Data.SqlClient;
+using System.Net.WebSockets;
+using Microsoft.AspNetCore.Http;
+using System.Threading.Tasks;
+using System;
+using System.Threading;
+using System.Text;
+using System.Collections.Generic;
 
 namespace TableTopSim.Server
 {
@@ -55,6 +62,28 @@ namespace TableTopSim.Server
             app.UseStaticFiles();
 
             app.UseRouting();
+            app.UseWebSockets();
+
+            app.Use(async (context, next) =>
+            {
+                if (context.Request.Path == "/ws")
+                {
+                    if (context.WebSockets.IsWebSocketRequest)
+                    {
+                        WebSocket webSocket = await context.WebSockets.AcceptWebSocketAsync();
+                        await SocketHandler.Get().StartWebsocket(context, webSocket);
+                    }
+                    else
+                    {
+                        context.Response.StatusCode = 400;
+                    }
+                }
+                else
+                {
+                    await next();
+                }
+
+            });
 
             app.UseEndpoints(endpoints =>
             {

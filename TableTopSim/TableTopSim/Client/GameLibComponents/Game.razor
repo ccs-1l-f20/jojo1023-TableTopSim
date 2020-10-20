@@ -1,0 +1,154 @@
+﻿@using Blazor.Extensions.Canvas.Canvas2D;
+@using System.Numerics;
+@using GameLib;
+@using System.Diagnostics;
+@using System.Threading;
+@using MyCanvasLib;
+@using System.Text.Json;
+
+@inject IJSRuntime JSRuntime
+@inject NavigationManager NavigationManager
+@inject GlobalData GlobalData
+
+
+<div @onkeydown="@KeyDown" @onkeyup="@KeyUp" tabindex="0" @ref="globalDiv"></div>
+<div @onmousemove="MouseMove" @onmousedown="MouseDown" @onmouseup="MouseUp" @ref="div" style="width:100%;height:100%">
+    <MyCanvas Width="@Width" Height="@Height" @ref="canvas" />
+</div>
+
+@code {
+    [Parameter]
+    public GameManager GameManager { get; set; }
+    [Parameter]
+    public GameLib.Size Size { get; set; }
+    [Parameter]
+    public CancellationTokenSource Cts { get; set; }
+    long Width => Size.Width;
+    long Height => Size.Height;
+
+    bool renderUi = false;
+    private MyCanvas2DContext context;
+    protected MyCanvas canvas;
+    Vector2 mousePos = Vector2.Zero;
+    ElementReference div;
+    ElementReference globalDiv;
+    BoundingClientRect boundingClientRect;
+    bool hasRendered = false;
+    GameLib.Size canvasVisualSize;
+
+    long cvsWindowWidthDiff = -1;
+    long cvsWindowHeightDiff = -1;
+    protected override void OnInitialized()
+    {
+        NavigationManager.LocationChanged += OnLocationChanged;
+        GlobalData.OnBrowserResize += OnBrowserResize;
+    }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JSRuntime.InvokeVoidAsync("SetFocusTo", globalDiv);
+            await OnBrowserResize();
+            context = await canvas.CreateCanvas2DAsync();
+            //StateHasChanged();
+
+
+
+            await context.ClearRectAsync(0, 0, Width, Height);
+
+            await Task.Run(async () => await Update(Cts.Token));
+        }
+    }
+    void OnLocationChanged(object sender, LocationChangedEventArgs args)
+    {
+        GlobalData.Reset();
+        Cts.Cancel();
+    }
+    async Task OnBrowserResize()
+    {
+        long windowWidth = await JSRuntime.InvokeAsync<long>("browserResize.getInnerWidth") - 100;
+        long windowHeight = await JSRuntime.InvokeAsync<long>("browserResize.getInnerHeight") - 100;
+        int[] maxSize = await JSRuntime.InvokeAsync<int[]>("FillCanvas", canvas.CanvasReference);
+        long maxWidth = maxSize[0];
+        long maxHeight = maxSize[1];
+        maxWidth = Math.Min(maxWidth, Math.Max(1, windowWidth));
+        maxHeight = Math.Min(maxHeight, Math.Max(1, windowHeight));
+        long newWidth;
+        long newHeight;
+        if (Width / maxWidth > Height / maxHeight)
+        {
+            newWidth = maxWidth;
+            newHeight = (long)(Height * (maxWidth / Width));
+        }
+        else
+        {
+
+            newWidth = (long)(Width * (maxHeight / (double)Height));
+            newHeight = maxHeight;
+        }
+        await JSRuntime.InvokeVoidAsync("SetCanvasSize", canvas.CanvasReference, newWidth, newHeight);
+        canvasVisualSize = new GameLib.Size(newWidth, newHeight);
+    }
+    public async Task Update(CancellationToken ct)
+    {
+        Stopwatch stopwatch = new Stopwatch();
+        stopwatch.Start();
+        while (true)
+        {
+            if (ct.IsCancellationRequested) { break; }
+            if (GameManager != null)
+            {
+                await GameManager.Update(context, stopwatch.Elapsed, ct);
+            }
+
+            long previousElapsedMilli = stopwatch.ElapsedMilliseconds;
+            stopwatch.Restart();
+            await Task.Delay((int)Math.Max(0, 16 - previousElapsedMilli), ct);
+        }
+    }
+    void MouseUp(MouseEventArgs args)
+    {
+        if (hasRendered)
+        {
+            GameManager.MouseUp();
+        }
+    }
+    void MouseDown(MouseEventArgs args)
+    {
+        if (hasRendered)
+        {
+            GameManager.MouseDown();
+        }
+    }
+    void MouseMove(MouseEventArgs args)
+    {
+        if (hasRendered && boundingClientRect != null && GameManager != null)
+        {
+            mousePos = new Vector2((float)(args.ClientX - boundingClientRect.Left), (float)(args.ClientY - boundingClientRect.Top));
+            float scaleVal = Size.Width / (float)canvasVisualSize.Width;
+            mousePos = new Vector2(scaleVal * mousePos.X, scaleVal * mousePos.Y);
+            GameManager.MouseMove(mousePos);
+        }
+    }
+    protected override bool ShouldRender()
+    {
+        hasRendered = true;
+        UpdateBoundingRect();
+        return renderUi;
+    }
+    async void UpdateBoundingRect()
+    {
+        boundingClientRect = await JSRuntime.InvokeAsync<BoundingClientRect>
+    ("MyDOMGetBoundingClientRect", div);
+        await JSRuntime.InvokeVoidAsync("SetFocusTo", globalDiv);
+    }
+
+    void KeyDown(KeyboardEventArgs args)
+    {
+        GameManager.KeyDown(args);
+    }
+    void KeyUp(KeyboardEventArgs args)
+    {
+        GameManager.KeyUp(args);
+    }
+}

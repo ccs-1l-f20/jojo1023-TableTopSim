@@ -1,4 +1,5 @@
-﻿using Blazor.Extensions.Canvas.Canvas2D;
+﻿
+using MyCanvasLib;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -159,7 +160,7 @@ namespace GameLib.Sprites
             }
         }
 
-        public async Task Draw(Canvas2DContext context)
+        public async Task Draw(MyCanvas2DContext context)
         {
             await context.SaveAsync();
             await context.TranslateAsync(Position.X, Position.Y);
@@ -177,7 +178,7 @@ namespace GameLib.Sprites
             //await context.ScaleAsync(1 / Scale.X, 1 / Scale.Y);
             //await context.TranslateAsync(-translateVector.X, -translateVector.Y);
         }
-        protected abstract Task OverideDraw(Canvas2DContext context);
+        protected abstract Task OverideDraw(MyCanvas2DContext context);
 
         /// <summary>
         /// Shoul Only Be Called By Game Manager and Only Once
@@ -268,7 +269,7 @@ namespace GameLib.Sprites
         }
 
 
-        protected override async Task OverideDraw(Canvas2DContext context) { }
+        protected override async Task OverideDraw(MyCanvas2DContext context) { }
 
         protected override bool PointInHitbox(Vector2 point)
         {

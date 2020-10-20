@@ -6,14 +6,16 @@ namespace TableTopSim.Shared
 {
     public class Player
     {
-        public int PlayerId { get; }
-        public string Name { get; }
-        public int? RoomId { get; }
-        public Player(int playerId, string name, int? roomId)
+        public int PlayerId { get; set; }
+        public string Name { get; set; }
+        public int? RoomId { get; set; }
+        public bool IsHost { get; set; }
+        public Player(int playerId, string name, int? roomId, bool isHost)
         {
             PlayerId = playerId;
             Name = name;
             RoomId = roomId;
+            IsHost = isHost;
         }
     }
 }

@@ -10,13 +10,13 @@ namespace DataLayer
 {
     public static class RoomDL
     {
-        public static async Task<PlayerAndRoomId> CreatePlayerAndRoom(HttpClient http, string playerName, int gameId)
+        public static async Task<PlayerAndRoomId> CreatePlayerAndRoom(HttpClient http, string playerName)
         {
             if(playerName == null || playerName.Length > 100)
             {
                 return null;
             }
-            var response = await http.PostAsync($"api/Room/CreatePlayerAndRoom/{playerName}/{gameId}", null);
+            var response = await http.PostAsync($"api/Room/CreatePlayerAndRoom/{playerName}", null);
             if (response.IsSuccessStatusCode)
             {
                 string content = await response.Content.ReadAsStringAsync();
@@ -60,6 +60,19 @@ namespace DataLayer
             }
         }
 
+        public static async Task<Player> GetPlayerRoom(HttpClient http, int playerId)
+        {
+            var response = await http.GetAsync($"api/Room/GetPlayerRoom/{playerId}");
+            if (response.IsSuccessStatusCode)
+            {
+                string content = await response.Content.ReadAsStringAsync();
+                return JsonConvert.DeserializeObject<Player>(content);
+            }
+            else
+            {
+                return null;
+            }
+        }
         public static async Task<bool> StartGame(HttpClient http, int roomId, int playerId)
         {
             var response = await http.PostAsync($"api/Room/StartGame/{roomId}/{playerId}", null);

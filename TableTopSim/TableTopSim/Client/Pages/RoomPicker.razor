@@ -1,84 +1,85 @@
 ﻿@using TableTopSim.Shared;
 @using DataLayer;
+@using TableTopSim.Client.Components;
 @inject NavigationManager NavigationManager
-@inject RoomData RoomData
 @inject HttpClient Http
-Name:
-<input @oninput="NameChange" />
-<br />
+@inject GlobalData GlobalData
+
+<TextEdit Text="@playerName" TextChanged="NameChange" MaxLength="100" Placeholder="Name" Style="width:300px" />
+
 <br />
 
 @if (validName)
 {
-    <button class="btn btn-primary" @onclick="NewRoomClick">Create New Room</button>
+    <Button Clicked="NewRoomClick" Color="Color.Primary">Create New Room</Button>
 }
 else
 {
-    <button class="btn btn-primary" @onclick="NewRoomClick" disabled>Create New Room</button>
+    <Button Clicked="NewRoomClick" Color="Color.Primary" disabled>Create New Room</Button>
 }
-<br />
-<br />
 
+<br />
 <p>Or</p>
-<br />
 
-@if (validName)
-{
-    <button class="btn btn-primary" @onclick="JoinRoomClick">Join Room</button>
-}
-else
-{
-    <button class="btn btn-primary" @onclick="JoinRoomClick" disabled>Join Room</button>
-}
-RoomID:
-<input @bind-value="roomID" type="number" min="0" max="@int.MaxValue" />
+<Addons>
+    <Addon AddonType="AddonType.Start">
+        @if (validName)
+        {
+            <Button Clicked="JoinRoomClick" Color="Color.Primary">Join Room</Button>
+        }
+        else
+        {
+            <Button Clicked="JoinRoomClick" Color="Color.Primary" disabled>Join Room</Button>
+        }
+    </Addon>
+    <Addon AddonType="AddonType.End">
+        <NumericEdit TValue="int" @bind-value="roomID" Placeholder="Room Id" />
+    </Addon>
+</Addons>
 
 @code {
     bool validName = false;
-    string Name
-    {
-        get { return RoomData.PlayerName; }
-        set
-        {
-            RoomData.PlayerName = value;
-            validName = ValidName();
-        }
-    }
+    string playerName = "";
     int roomID = 0;
-    protected override void OnInitialized()
-    {
-        RoomData.Reset();
-    }
+
     async void NewRoomClick()
     {
-        RoomData.IsHost = true;
-
-
         //generate room and get player id
-        var prId = await RoomDL.CreatePlayerAndRoom(Http, RoomData.PlayerName, 1);
-        RoomData.PlayerId = prId.PlayerId;
-        RoomData.RoomId = prId.RoomId;
-        NavigationManager.NavigateTo("lobby");
+        var prId = await ReTryer.Try(100, 5, async () => await RoomDL.CreatePlayerAndRoom(Http, playerName));
+        if (prId == null)
+        {
+            GlobalData.ShowMessage("An Error Has Occured");
+        }
+        else
+        {
+            NavigationManager.NavigateTo($"Lobby/{prId.RoomId}/{prId.PlayerId}");
+        }
     }
     async void JoinRoomClick()
     {
         //validate room id and get player id
-        int? playerId = await RoomDL.CreatePlayerInRoom(Http, RoomData.PlayerName, roomID);
+        int? playerId = await ReTryer.Try(100, 5, async () => await RoomDL.CreatePlayerInRoom(Http, playerName, roomID));
         if (playerId != null)
         {
-            RoomData.PlayerId = playerId.Value;
-            RoomData.RoomId = roomID;
-            NavigationManager.NavigateTo("lobby");
+            NavigationManager.NavigateTo($"Lobby/{roomID}/{playerId.Value}");
         }
+        else
+        {
+            GlobalData.ShowMessage($"There Is No Open Room: {roomID}");
+        }
+
+    }
+    bool ValidName(string name)
+    {
+        validName = name.Trim().Length > 0;
+        return validName;
     }
 
-    bool ValidName()
+    void NameChange(string name)
     {
-        return RoomData.PlayerName.Trim().Length > 0;
-    }
-
-    void NameChange(ChangeEventArgs args)
-    {
-        Name = (string)args.Value;
+        if (ValidName(name))
+        {
+            playerName = name;
+        }
     }
 }
