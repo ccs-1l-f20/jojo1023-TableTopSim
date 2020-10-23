@@ -2,6 +2,7 @@
 @inject NavigationManager NavigationManager
 @inject HttpClient Http
 @inject GlobalData GlobalData
+@inject Uri WebSocketUri
 @using TableTopSim.Shared
 @using DataLayer
 @using System.Threading
@@ -54,12 +55,31 @@ else
     }
     void OnLocationChanged(object sender, LocationChangedEventArgs args)
     {
+        NavigationManager.LocationChanged -= OnLocationChanged;
+        if (GlobalData.WebSocket != null)
+        {
+            GlobalData.WebSocket.OnRecieved -= OnRecivedWSMessage;
+        }
         cts.Cancel();
+    }
+
+    void OnRecivedWSMessage(ArraySegment<byte> message)
+    {
+        MessageType mt = (MessageType)message[0];
+        if (mt != MessageType.StartGame) { return; }
+        message = message.Slice(1);
+        int roomId = MessageExtensions.GetNextInt(ref message);
+        if (roomId == RoomId)
+        {
+            GlobalData.WebSocket.OnRecieved -= OnRecivedWSMessage;
+            cts.Cancel();
+            NavigationManager.NavigateTo($"/Game/{RoomId}/{PlayerId}");
+        }
     }
 
     async Task UpdatePlayers(CancellationToken ct)
     {
-        thisPlayer = await ReTryer.Try(100, 5, async () => await RoomDL.GetPlayerRoom(Http, PlayerId));
+        thisPlayer = await GlobalData.ReconnectWebSocket(WebSocketUri, PlayerId);
         if (thisPlayer == null)
         {
             GlobalData.ShowMessage($"The Player Does Not Exist");
@@ -67,25 +87,35 @@ else
             NavigationManager.NavigateTo("");
             return;
         }
-        else if(thisPlayer.RoomId == null)
+        else if (thisPlayer.RoomId == null)
         {
             GlobalData.ShowMessage($"The Player Is Not In A Room");
             cts.Cancel();
             NavigationManager.NavigateTo("");
             return;
         }
-        else if(thisPlayer.RoomId != RoomId)
+        else if (thisPlayer.RoomId != RoomId)
         {
             GlobalData.ShowMessage($"The Player Is Not In Room: {RoomId}");
             cts.Cancel();
             NavigationManager.NavigateTo("");
             return;
         }
+        else if (!thisPlayer.RoomOpen)
+        {
+            GlobalData.ShowMessage($"Game Already Started");
+            cts.Cancel();
+            NavigationManager.NavigateTo($"Game/{RoomId}/{PlayerId}");
+            return;
+        }
+        GlobalData.WebSocket.OnRecieved += OnRecivedWSMessage;
+
+
         while (true)
         {
             if (ct.IsCancellationRequested) { break; }
-            Player[] newPlayers = await ReTryer.Try(100, 3, async ()=> await RoomDL.GetPlayers(Http, RoomId));
-            if(newPlayers == null)
+            Player[] newPlayers = await ReTryer.Try(100, 3, async () => await RoomDL.GetPlayers(Http, RoomId));
+            if (newPlayers == null)
             {
                 GlobalData.ShowMessage($"An Error Has Occured");
             }
@@ -99,18 +129,8 @@ else
             await Task.Delay(1000, ct);
         }
     }
-
     async void OnStartGameClick()
     {
-        cts.Cancel();
-        bool sucsessful = await ReTryer.Try(100, 5, async () => await RoomDL.StartGame(Http, RoomId, PlayerId));
-        if (sucsessful)
-        {
-            NavigationManager.NavigateTo($"/Game/{RoomId}/{PlayerId}");
-        }
-        else
-        {
-            GlobalData.ShowMessage($"An Error Has Occured");
-        }
+        await RoomDL.StartGame(GlobalData.WebSocket, RoomId, PlayerId);
     }
 }

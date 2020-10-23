@@ -9,8 +9,9 @@ namespace DataLayer
         CreateRoom = 0x00,
         JoinRoom = 0x01,
         StartGame = 0x02,
-        JoinedMidgame = 0x03,
-        GameState = 0x04,
-        ChangeGameState = 0x05,
+        ReJoin = 0x03,
+        RequestGameState = 0x04,
+        GameState = 0x05,
+        ChangeGameState = 0x06,
     }
 }

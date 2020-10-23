@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Components;
+﻿using GameLib.GameSerialization;
+using Microsoft.AspNetCore.Components;
 using MyCanvasLib;
 using System;
 using System.Collections.Generic;
@@ -13,9 +14,20 @@ namespace GameLib.Sprites
     {
         public ElementReference Image { get; set; }
         public RectangleF? SourceRectangle { get; set; }
+        [GameSerializableData(50)]
         public Vector2 Size { get; set; }
         public float Width { get { return Size.X; } set { Size = new Vector2(value, Size.Y); } }
         public float Height { get { return Size.Y; } set { Size = new Vector2(Size.X, value); } }
+        static ImageSprite()
+        {
+            GetDeafaultSprites.Add(ObjectTypes.ImageSprite, () => new ImageSprite());
+            GameSerialize.AddType<ImageSprite>(GameSerialize.GenericSerializeFunc, GameSerialize.GenericDeserializeFunc, true, GameSerialize.CustomGenericDeserializeFunc);
+        }
+        public ImageSprite()
+            :base(ObjectTypes.ImageSprite)
+        {
+
+        }
         public ImageSprite(Vector2 position, ElementReference image, Vector2 size, Vector2 origin,
             float rotation = 0, RectangleF? sourceRectangle = null)
             : base(position, Vector2.One, origin, rotation, ObjectTypes.ImageSprite)

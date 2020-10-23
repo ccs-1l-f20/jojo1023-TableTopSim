@@ -8,7 +8,7 @@ namespace DataLayer
     {
         public static string GetNextString(this ArraySegment<byte> msg, int offset = 0)
         {
-            short strLength = BitConverter.ToInt16(msg.Slice(offset, 2));
+            ushort strLength = BitConverter.ToUInt16(msg.Slice(offset, 2));
             return Encoding.UTF8.GetString(msg.Slice(2 + offset, strLength));
         }
         public static int GetNextInt(ref ArraySegment<byte> msg)
@@ -31,11 +31,11 @@ namespace DataLayer
         }
         public static void AddStringBytes(List<byte> bytes, string str)
         {
-            if(str.Length > short.MaxValue)
+            if(str.Length > ushort.MaxValue)
             {
-                str = str.Substring(0, short.MaxValue);
+                str = str.Substring(0, ushort.MaxValue);
             }
-            bytes.AddRange(BitConverter.GetBytes((short)str.Length));
+            bytes.AddRange(BitConverter.GetBytes((ushort)str.Length));
             bytes.AddRange(Encoding.UTF8.GetBytes(str));
         }
         public static void AddIntBytes(List<byte> bytes, int i)

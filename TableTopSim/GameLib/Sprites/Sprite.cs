@@ -1,4 +1,5 @@
 ﻿
+using GameLib.GameSerialization;
 using MyCanvasLib;
 using System;
 using System.Collections.Generic;
@@ -10,15 +11,21 @@ namespace GameLib.Sprites
 {
     public abstract class Sprite
     {
+        protected static Dictionary<ObjectTypes, Func<Sprite>> GetDeafaultSprites = new Dictionary<ObjectTypes, Func<Sprite>>();
         public event Action<Sprite> OnLayerDepthChanged;
         public event Action<Sprite, Vector2, MouseState> OnMouseEnter;
         public event Action<Sprite, Vector2, MouseState> OnMouseLeave;
+
+        [GameSerializableData(1)]
         public Vector2 Position { get; set; }
         public float X { get { return Position.X; } set { Position = new Vector2(value, Position.Y); } }
         public float Y { get { return Position.Y; } set { Position = new Vector2(Position.X, value); } }
 
+        [GameSerializableData(2)]
         public Vector2 Scale { get; set; }
+        [GameSerializableData(3)]
         public Vector2 Origin { get; set; }
+        [GameSerializableData(4)]
         public float Rotation { get; set; }
 
         protected List<Sprite> children;
@@ -29,20 +36,38 @@ namespace GameLib.Sprites
         bool mouseOver = false;
         Sprite parent;
 
-        ObjectTypes objectType;
+
+        [GameSerializableData(5)]
         public float LayerDepth
         {
             get { return layerDepth; }
             set { layerDepth = value; LayerDepthChanged(); }
         }//Negative Layer Depth is Front
 
+        [GameSerializableData(6)]
         public int Id { get; set; } = -1;
 
-        public int ObjectType { get => (int)objectType; }
-
+        const ushort objectTypeDataId = 0;
+        [GameSerializableData(objectTypeDataId, true)]
+        public ObjectTypes ObjectType { get; private set; }
+        static Sprite()
+        {
+            GameSerialize.AddType<Sprite>(GameSerialize.GenericSerializeFunc, DeserializeSprite);
+        }
+        public Sprite(ObjectTypes objectType)
+        {
+            ObjectType = objectType;
+            Position = Vector2.Zero;
+            Origin = Vector2.Zero;
+            Scale = Vector2.One;
+            Rotation = 0;
+            children = new List<Sprite>();
+            childrenIndexes = new Dictionary<Sprite, int>();
+            parent = null;
+        }
         public Sprite(Vector2 position, Vector2 scale, Vector2 origin, float rotation, ObjectTypes objectType)
         {
-            this.objectType = objectType;
+            ObjectType = objectType;
             Position = position;
             Origin = origin;
             Scale = scale;
@@ -105,7 +130,7 @@ namespace GameLib.Sprites
         {
             if (childrenIndexes.ContainsKey(sprite))
             {
-                sprite.layerDepth = children[children.Count-1].LayerDepth;
+                sprite.layerDepth = children[children.Count - 1].LayerDepth;
                 ChildLayerDepthChanged(sprite, true, false);
             }
         }
@@ -258,10 +283,23 @@ namespace GameLib.Sprites
             float bottom = (size.Y - Origin.Y);
             return rotPoint.X >= left && rotPoint.X < right && rotPoint.Y >= top && rotPoint.Y < bottom;
         }
-
+        public static Sprite DeserializeSprite(TypeSerializableInfo<Sprite> info, ArrayWithOffset<byte> bytes)
+        {
+            var propertyBytes = GameSerialize.GetPropertyBytes(bytes);
+            ObjectTypes objectType = (ObjectTypes)propertyBytes[objectTypeDataId][0];
+            Sprite dataObject = GetDeafaultSprites[objectType]?.Invoke();
+            return (Sprite)GameSerialize.CustomDeserialize(dataObject, propertyBytes);
+        }
     }
     public class EmptySprite : Sprite
     {
+        static EmptySprite()
+        {
+            GetDeafaultSprites.Add(ObjectTypes.EmptySprite, () => new EmptySprite());
+            GameSerialize.AddType<EmptySprite>(GameSerialize.GenericSerializeFunc, GameSerialize.GenericDeserializeFunc, true, GameSerialize.CustomGenericDeserializeFunc);
+        }
+        public EmptySprite()
+            : base(ObjectTypes.EmptySprite) { }
         public EmptySprite(Vector2 position, Vector2 scale, Vector2 origin, float rotation = 0)
             : base(position, scale, origin, rotation, ObjectTypes.EmptySprite)
         {
@@ -275,7 +313,7 @@ namespace GameLib.Sprites
         {
             return false;
         }
-        
+
     }
 
 

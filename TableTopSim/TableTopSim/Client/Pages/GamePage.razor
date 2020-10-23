@@ -8,6 +8,7 @@
 @using TableTopSim.Shared
 @using DataLayer
 @using System.Threading;
+@inject Uri WebSocketUri
 
 <img src="/images/cardBack.png" asp-append-version="true" @ref="CardBack" style="display:none" />
 <img src="/images/Chess_kdt45.svg" asp-append-version="true" @ref="King" style="display:none" />
@@ -32,7 +33,7 @@
     protected override async Task OnInitializedAsync()
     {
         NavigationManager.LocationChanged += OnLocationChanged;
-        thisPlayer = await ReTryer.Try(100, 5, async () => await RoomDL.GetPlayerRoom(Http, PlayerId));
+        thisPlayer = await GlobalData.ReconnectWebSocket(WebSocketUri, PlayerId);
         if (thisPlayer == null)
         {
             GlobalData.ShowMessage($"The Player Does Not Exist");
@@ -54,11 +55,27 @@
             NavigationManager.NavigateTo("");
             return;
         }
+        else if (thisPlayer.RoomOpen)
+        {
+            GlobalData.ShowMessage($"The Game Has Not Started Yet");
+            cts.Cancel();
+            NavigationManager.NavigateTo($"Lobby/{RoomId}/{PlayerId}");
+            return;
+        }
+
+        GlobalData.WebSocket.OnRecieved += OnRecivedWSMessage;
+
         gameManager = new GameManager(size, PlayerId, RoomId);
         gameProgram = new GameProgram(gameManager, CardBack, King, Queen);
     }
     void OnLocationChanged(object sender, LocationChangedEventArgs args)
     {
+        NavigationManager.LocationChanged -= OnLocationChanged;
         cts.Cancel();
+    }
+
+    void OnRecivedWSMessage(ArraySegment<byte> message)
+    {
+        MessageType mt = (MessageType)message[0];
     }
 }

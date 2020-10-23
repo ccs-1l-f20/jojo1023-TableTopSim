@@ -14,6 +14,9 @@ using System;
 using System.Threading;
 using System.Text;
 using System.Collections.Generic;
+using GameLib.Sprites;
+using System.Numerics;
+using GameLib.GameSerialization;
 
 namespace TableTopSim.Server
 {
@@ -32,6 +35,7 @@ namespace TableTopSim.Server
         // For more information on how to configure your application, visit https://go.microsoft.com/fwlink/?LinkID=398940
         public void ConfigureServices(IServiceCollection services)
         {
+
             connectionStringBuilder = new SqlConnectionStringBuilder();
             connectionStringBuilder.IntegratedSecurity = true;
             connectionStringBuilder.DataSource = @"(localdb)\MSSQLLocalDB";
@@ -49,6 +53,10 @@ namespace TableTopSim.Server
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
+            RectSprite rectSprite = new RectSprite(new Vector2(1, 2), new Vector2(3, 4), new GameLib.Color(123, 223, 255), Vector2.Zero, 45);
+            rectSprite.LayerDepth = 0.3141592f;
+            var b = GameSerialize.SerializeGameData(rectSprite);
+            var deRectSprite = GameSerialize.DeserializeGameData<Sprite>(b.ToArray());
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();

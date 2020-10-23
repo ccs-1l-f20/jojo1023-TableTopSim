@@ -30,6 +30,8 @@ namespace TableTopSim.Server
                 MessageFunctions = new Dictionary<MessageType, Func<WebSocket, long, ArraySegment<byte>, Task>>();
                 MessageFunctions.Add(MessageType.CreateRoom, OnCreateRoom);
                 MessageFunctions.Add(MessageType.JoinRoom, OnJoinRoom);
+                MessageFunctions.Add(MessageType.StartGame, OnStartGame);
+                MessageFunctions.Add(MessageType.ReJoin, OnReJoin);
             }
         }
 
@@ -57,8 +59,8 @@ namespace TableTopSim.Server
                 if (result.Count >= 9)
                 {
                     ArraySegment<byte> messageBytes = new ArraySegment<byte>(buffer, 0, result.Count);
-                    long messageId = BitConverter.ToInt64(messageBytes.Slice(0, 8));
-                    MessageType msgType = (MessageType)messageBytes[8];
+                    MessageType msgType = (MessageType)messageBytes[0];
+                    long messageId = BitConverter.ToInt64(messageBytes.Slice(1, 8));
                     messageBytes = messageBytes.Slice(9);
                     if (MessageFunctions.ContainsKey(msgType))
                     {
@@ -69,12 +71,17 @@ namespace TableTopSim.Server
             }
             await webSocket.CloseAsync(result.CloseStatus.Value, result.CloseStatusDescription, CancellationToken.None);
         }
+        byte GetBoolByte(bool b)
+        {
+            return (byte)(b ? 255 : 0);
+        }
+
         List<byte> ConfirmationList(long messageId, MessageType messageType, bool error)
         {
             List<byte> bytes = new List<byte>();
-            bytes.AddRange(BitConverter.GetBytes(messageId));
             bytes.Add((byte)messageType);
-            bytes.Add((byte)(error ? 255 : 0));
+            bytes.AddRange(BitConverter.GetBytes(messageId));
+            bytes.Add(GetBoolByte(error));
             return bytes;
         }
         void AddPlayerWS(int playerId, WebSocket ws, int? roomId)
@@ -88,14 +95,13 @@ namespace TableTopSim.Server
                 PlayerWebSockets.Add(playerId, (ws, roomId));
             }
         }
-        
-
         #region MessageFunctions
         async Task OnCreateRoom(WebSocket ws, long messageId, ArraySegment<byte> msgBytes)
         {
+            MessageType msgType = MessageType.CreateRoom;
             string playerName = msgBytes.GetNextString();
             var playerAndRoom = await RoomController.CreatePlayerAndRoom(sqlConnection, playerName);
-            List<byte> sendBytes = ConfirmationList(messageId, MessageType.CreateRoom, playerAndRoom == null);
+            List<byte> sendBytes = ConfirmationList(messageId, msgType, playerAndRoom == null);
             if(playerAndRoom != null)
             {
                 sendBytes.AddRange(BitConverter.GetBytes(playerAndRoom.PlayerId));
@@ -126,17 +132,59 @@ namespace TableTopSim.Server
         }
         async Task OnJoinRoom(WebSocket ws, long messageId, ArraySegment<byte> msgBytes)
         {
+            MessageType msgType = MessageType.JoinRoom;
             int roomId = MessageExtensions.GetNextInt(ref msgBytes);
             string playerName = msgBytes.GetNextString();
             int? playerId = await RoomController.CreatePlayerInRoom(sqlConnection, playerName, roomId);
-            bool error = playerId == null || !GameRooms.ContainsKey(roomId);
-            List<byte> sendBytes = ConfirmationList(messageId, MessageType.JoinRoom, error);
+            bool error = playerId == null || !GameRooms.ContainsKey(roomId) || GameRooms[roomId].GameStarted;
+            List<byte> sendBytes = ConfirmationList(messageId, msgType, error);
             if (!error)
             {
                 sendBytes.AddRange(BitConverter.GetBytes(playerId.Value));
                 sendBytes.AddRange(BitConverter.GetBytes(roomId));
                 AddPlayerWS(playerId.Value, ws, roomId);
                 GameRooms[roomId].AddPlayerWS(playerId.Value, ws);
+            }
+            await ws.SendAsync(new ArraySegment<byte>(sendBytes.ToArray()), WebSocketMessageType.Binary, true, CancellationToken.None);
+        }
+
+        async Task OnStartGame(WebSocket ws, long messageId, ArraySegment<byte> msgBytes)
+        {
+            MessageType msgType = MessageType.StartGame;
+            int roomId = MessageExtensions.GetNextInt(ref msgBytes);
+            int playerId = MessageExtensions.GetNextInt(ref msgBytes);
+
+            bool gameStarted = await RoomController.StartGame(sqlConnection, roomId, playerId);
+            if (gameStarted && GameRooms.ContainsKey(roomId))
+            {
+                GameRooms[roomId].GameStarted = true;
+                List<byte> sendBytes = new List<byte>();
+                sendBytes.Add((byte)msgType);
+                sendBytes.AddRange(BitConverter.GetBytes(roomId));
+                await GameRooms[roomId].SendToRoom(new ArraySegment<byte>(sendBytes.ToArray()));
+            }
+        }
+
+        async Task OnReJoin(WebSocket ws, long messageId, ArraySegment<byte> msgBytes)
+        {
+            MessageType msgType = MessageType.ReJoin;
+            int playerId = MessageExtensions.GetNextInt(ref msgBytes);
+            var playerInfo = await RoomController.GetPlayerRoom(sqlConnection, playerId);
+            bool error = playerInfo == null || !PlayerWebSockets.ContainsKey(playerId);
+            List<byte> sendBytes = ConfirmationList(messageId, msgType, error);
+            if (!error)
+            {
+                int sendRoomId = playerInfo.RoomId == null ? -1 : playerInfo.RoomId.Value;
+                sendBytes.AddRange(BitConverter.GetBytes(sendRoomId));
+                sendBytes.Add(GetBoolByte(playerInfo.IsHost));
+                sendBytes.Add(GetBoolByte(playerInfo.RoomOpen));
+                MessageExtensions.AddStringBytes(sendBytes, playerInfo.Name);
+                PlayerWebSockets[playerId] = (ws, playerInfo.RoomId);
+                if(playerInfo.RoomId != null && GameRooms.ContainsKey(sendRoomId) 
+                    && GameRooms[sendRoomId].PlayerWebSockets.ContainsKey(playerId))
+                {
+                    GameRooms[sendRoomId].PlayerWebSockets[playerId] = ws;
+                }
             }
             await ws.SendAsync(new ArraySegment<byte>(sendBytes.ToArray()), WebSocketMessageType.Binary, true, CancellationToken.None);
         }

@@ -78,7 +78,7 @@ namespace TableTopSim.Server.Controllers
                 if (players == null) { players = new List<Player>(); }
                 int hostId = (int)dr["HostPlayerId"];
                 int playerId = (int)dr["PlayerId"];
-                players.Add(new Player(playerId, (string)dr["Name"], roomId, playerId == hostId));
+                players.Add(new Player(playerId, (string)dr["Name"], roomId, playerId == hostId, (bool)dr["RoomOpen"]));
             }
 
             connection.Close();
@@ -86,6 +86,10 @@ namespace TableTopSim.Server.Controllers
         }
         [HttpGet("GetPlayerRoom/{playerId}")]
         public async Task<Player> GetPlayerRoom(int playerId)
+        {
+            return await GetPlayerRoom(connection, playerId);
+        }
+        public static async Task<Player> GetPlayerRoom(SqlConnection connection, int playerId)
         {
             SqlCommand command = new SqlCommand("uspGetPlayerRoom", connection) { CommandType = CommandType.StoredProcedure };
             command.Parameters.AddWithValue("@PlayerId", playerId);
@@ -102,7 +106,7 @@ namespace TableTopSim.Server.Controllers
                 {
                     isHost = playerId == (int)dr["HostPlayerId"];
                 }
-                p = new Player((int)dr["PlayerId"], (string)dr["Name"], roomId, isHost);
+                p = new Player((int)dr["PlayerId"], (string)dr["Name"], roomId, isHost, (bool)dr["RoomOpen"]);
             }
             connection.Close();
             return p;
@@ -111,17 +115,7 @@ namespace TableTopSim.Server.Controllers
         [HttpPost("StartGame/{roomId}/{playerId}")]
         public async Task<IActionResult> StartGame(int roomId, int playerId)
         {
-            SqlCommand command = new SqlCommand("uspStartGame", connection) { CommandType = CommandType.StoredProcedure };
-            command.Parameters.AddWithValue("@RoomId", roomId);
-            command.Parameters.AddWithValue("@PlayerId", playerId);
-
-            if (!(await connection.TryOpenAsync())) { return BadRequest(); }
-
-            bool retVal = (bool)(await command.ExecuteScalarAsync());
-
-            connection.Close();
-
-            if (retVal)
+            if (await StartGame(connection, roomId, playerId))
             {
                 return Ok();
             }
@@ -130,6 +124,18 @@ namespace TableTopSim.Server.Controllers
                 return BadRequest();
             }
         }
+        public static async Task<bool> StartGame(SqlConnection connection, int roomId, int playerId)
+        {
+            SqlCommand command = new SqlCommand("uspStartGame", connection) { CommandType = CommandType.StoredProcedure };
+            command.Parameters.AddWithValue("@RoomId", roomId);
+            command.Parameters.AddWithValue("@PlayerId", playerId);
 
+            if (!(await connection.TryOpenAsync())) { return false; }
+
+            bool retVal = (bool)(await command.ExecuteScalarAsync());
+
+            connection.Close();
+            return retVal;
+        }
     }
 }

@@ -1,8 +1,11 @@
-﻿using System;
+﻿using DataLayer;
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.WebSockets;
 using System.Threading;
 using System.Threading.Tasks;
+using TableTopSim.Shared;
 
 namespace TableTopSim.Client
 {
@@ -40,6 +43,19 @@ namespace TableTopSim.Client
             if(WebSocket != null) { WebSocket.Close(); }
             WebSocket = new MyClientWebSocket(WebSocketCts, uri);
             return WebSocket;
+        }
+
+        public async Task<Player> ReconnectWebSocket(Uri uri, int playerId)
+        {
+            if (WebSocket == null)
+            {
+                CreateWebSocket(uri);
+            }
+            if (WebSocket.WebSocketState != WebSocketState.Open)
+            {
+                await WebSocket.Connect();
+            }
+            return await RoomDL.ReJoin(WebSocket, playerId);
         }
     }
 }
