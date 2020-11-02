@@ -20,8 +20,9 @@ namespace GameLib.Sprites
         public float Height { get { return Size.Y; } set { Size = new Vector2(Size.X, value); } }
         static ImageSprite()
         {
-            GetDeafaultSprites.Add(ObjectTypes.ImageSprite, () => new ImageSprite());
-            GameSerialize.AddType<ImageSprite>(GameSerialize.GenericSerializeFunc, GameSerialize.GenericDeserializeFunc, true, GameSerialize.CustomGenericDeserializeFunc);
+            GetDeafaultSprites.Add(ObjectTypes.ImageSprite, (() => new ImageSprite(), typeof(ImageSprite)));
+            GameSerialize.AddType<ImageSprite>(GameSerialize.GenericSerializeFunc, GameSerialize.GenericDeserializeFunc, true, 
+                GameSerialize.GenericDeserializeEditFunc, GameSerialize.CustomGenericDeserializeFunc);
         }
         public ImageSprite()
             :base(ObjectTypes.ImageSprite)

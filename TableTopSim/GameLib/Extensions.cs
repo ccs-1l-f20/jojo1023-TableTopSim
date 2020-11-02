@@ -37,6 +37,30 @@ namespace GameLib
         {
             return new Vector2(sizeF.Width, sizeF.Height);
         }
+
+
+        public static unsafe float MinIncrement(float f)
+        {
+            int val = *(int*)&f;
+            if (f > 0)
+                val++;
+            else if (f < 0)
+                val--;
+            else if (f == 0)
+                return float.Epsilon;
+            return *(float*)&val;
+        }
+        public static unsafe float MinDecrement(float f)
+        {
+            int val = *(int*)&f;
+            if (f > 0)
+                val--;
+            else if (f < 0)
+                val++;
+            else if (f == 0)
+                return -float.Epsilon; // thanks to Sebastian Negraszus
+            return *(float*)&val;
+        }
     }
     
 }

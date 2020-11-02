@@ -1,10 +1,13 @@
 ﻿using DataLayer;
+using GameLib.GameSerialization;
+using GameLib.Sprites;
 using Microsoft.AspNetCore.Http;
 using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Linq;
 using System.Net.WebSockets;
+using System.Numerics;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -33,6 +36,16 @@ namespace TableTopSim.Server
                 MessageFunctions.Add(MessageType.StartGame, OnStartGame);
                 MessageFunctions.Add(MessageType.ReJoin, OnReJoin);
             }
+
+
+            RectSprite rectSprite = new RectSprite(new Vector2(1, 2), new Vector2(3, 4), new GameLib.Color(123, 223, 255), Vector2.Zero, 45);
+            EmptySprite emptySprite = new EmptySprite(new Vector2(10, 11), new Vector2(3, 3), new Vector2(-1, -1), -135);
+            rectSprite.LayerDepth = 0.3141592f;
+            var dict = new Dictionary<int, Sprite> { { 0, rectSprite }, { 1, emptySprite } };
+            var b = GameSerialize.SerializeDict(dict, new Dictionary<object, HashSet<int>> { { dict, new HashSet<int> { 0, 1 } },
+                {emptySprite, new HashSet<int>() { 0, 1,4} } }, new HashSet<int>() { 2 });
+            var newDict = new Dictionary<int, Sprite> { { 0,null}, { 2, null } };
+            newDict = GameSerialize.DeserializeEditGameData(newDict, b.ToArray());
         }
 
         public static SocketHandler Get(SqlConnection sqlConnection)

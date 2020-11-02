@@ -4,10 +4,7 @@ using Microsoft.AspNetCore.Components.Web;
 using MyCanvasLib;
 using Newtonsoft.Json;
 using System;
-using System.Collections.Generic;
 using System.Numerics;
-using System.Text;
-using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -33,6 +30,8 @@ namespace GameLib
         public Sprite MouseOnSprite { get; private set; }
         public int PlayerId { get; }
         public int RoomId { get; }
+        public SpriteRefrenceManager SpriteRefrenceManager;
+        Random random = new Random();
         public GameManager(Size size, int playerId, int roomId)
         {
             PlayerId = playerId;
@@ -40,18 +39,19 @@ namespace GameLib
             MouseOnSprite = null;
             Keyboard = new KeyboardState();
             gameSprite = new EmptySprite(Vector2.Zero, Vector2.One, Vector2.Zero, 0);
+            SpriteRefrenceManager = new SpriteRefrenceManager();
             this.size = size;
             MouseState = MouseState.Hover;
             //gameProgram = new GameProgram(this);
         }
         public async Task Update(MyCanvas2DContext context, TimeSpan elapsedTime, CancellationToken ct)
         {
-            MouseOnSprite = gameSprite.GameManagerUpdate(MousePos, MouseState, elapsedTime);
+            MouseOnSprite = gameSprite.GameManagerUpdate(MousePos, MouseState, elapsedTime, SpriteRefrenceManager);
             OnUpdate?.Invoke(elapsedTime);
             await context.BeginBatchAsync();
             await context.SetFillStyleAsync(BackColor.ToString());
             await context.FillRectAsync(0, 0, Width, Height);
-            await gameSprite.Draw(context);
+            await gameSprite.Draw(context, SpriteRefrenceManager);
             await context.EndBatchAsync();
         }
 
@@ -85,22 +85,48 @@ namespace GameLib
             OnKeyDown?.Invoke(info);
         }
 
+        int GetNewSpriteAddress()
+        {
+            int address;
+            do
+            {
+                address = random.Next();
+            } while (SpriteRefrenceManager.SpriteRefrences.ContainsKey(address));
+            return address;
+        }
         public void AddSprite(Sprite sprite)
         {
-            gameSprite.AddChild(sprite);
+            int spriteAddress = GetNewSpriteAddress();
+            SpriteRefrenceManager.SpriteAddresses.Add(sprite, spriteAddress);
+            SpriteRefrenceManager.SpriteRefrences.Add(spriteAddress, sprite);
+            gameSprite.AddChild(sprite, SpriteRefrenceManager);
+        }
+        public void AddSprite(int sprite)
+        {
+            gameSprite.AddChild(SpriteRefrenceManager.SpriteRefrences[sprite], SpriteRefrenceManager);
         }
         public bool RemoveSprite(Sprite sprite)
         {
-            return gameSprite.RemoveChild(sprite);
+            if (gameSprite.RemoveChild(sprite, SpriteRefrenceManager))
+            {
+                int spriteAddress = SpriteRefrenceManager.SpriteAddresses[sprite];
+                SpriteRefrenceManager.SpriteRefrences.Remove(spriteAddress);
+                SpriteRefrenceManager.SpriteAddresses.Remove(sprite);
+                return true;
+            }
+            return false;
         }
-
+        public void ClearSprites()
+        {
+            gameSprite.ClearChildren(SpriteRefrenceManager);
+        }
         public void MoveChildToFront(Sprite sprite)
         {
-            gameSprite.MoveChildToFront(sprite);
+            gameSprite.MoveChildToFront(sprite, SpriteRefrenceManager);
         }
         public void MoveChildToBack(Sprite sprite)
         {
-            gameSprite.MoveChildToBack(sprite);
+            gameSprite.MoveChildToBack(sprite, SpriteRefrenceManager);
         }
 
         public string JsonSerializeSprites()

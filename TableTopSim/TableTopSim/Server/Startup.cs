@@ -53,10 +53,6 @@ namespace TableTopSim.Server
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
-            RectSprite rectSprite = new RectSprite(new Vector2(1, 2), new Vector2(3, 4), new GameLib.Color(123, 223, 255), Vector2.Zero, 45);
-            rectSprite.LayerDepth = 0.3141592f;
-            var b = GameSerialize.SerializeGameData(rectSprite);
-            var deRectSprite = GameSerialize.DeserializeGameData<Sprite>(b.ToArray());
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();

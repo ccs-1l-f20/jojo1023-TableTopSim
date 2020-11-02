@@ -63,10 +63,9 @@
             return;
         }
 
-        GlobalData.WebSocket.OnRecieved += OnRecivedWSMessage;
 
         gameManager = new GameManager(size, PlayerId, RoomId);
-        gameProgram = new GameProgram(gameManager, CardBack, King, Queen);
+        gameProgram = new GameProgram(gameManager, GlobalData.WebSocket, RoomId, CardBack, King, Queen);
     }
     void OnLocationChanged(object sender, LocationChangedEventArgs args)
     {
@@ -74,8 +73,4 @@
         cts.Cancel();
     }
 
-    void OnRecivedWSMessage(ArraySegment<byte> message)
-    {
-        MessageType mt = (MessageType)message[0];
-    }
 }

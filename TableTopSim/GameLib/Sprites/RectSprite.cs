@@ -20,11 +20,12 @@ namespace GameLib.Sprites
 
         static RectSprite()
         {
-            GetDeafaultSprites.Add(ObjectTypes.RectSprite, () => new RectSprite());
-            GameSerialize.AddType<RectSprite>(GameSerialize.GenericSerializeFunc, GameSerialize.GenericDeserializeFunc, true, GameSerialize.CustomGenericDeserializeFunc);
+            GetDeafaultSprites.Add(ObjectTypes.RectSprite, (() => new RectSprite(), typeof(RectSprite)));
+            GameSerialize.AddType<RectSprite>(GameSerialize.GenericSerializeFunc, GameSerialize.GenericDeserializeFunc, true, 
+                GameSerialize.GenericDeserializeEditFunc, GameSerialize.CustomGenericDeserializeFunc);
         }
         public RectSprite()
-            : base( ObjectTypes.RectSprite)
+            : base(ObjectTypes.RectSprite)
         {
 
         }
