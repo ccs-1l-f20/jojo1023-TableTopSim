@@ -20,7 +20,7 @@ namespace GameLib
         public event Action<KeyInfo> OnKeyDown;
         public event Action<TimeSpan> OnUpdate;
         public Color BackColor { get; set; } = new Color(255, 0, 0);
-        EmptySprite gameSprite;
+        public EmptySprite GameSprite { get; private set; }
         Size size;
         public long Width => size.Width;
         public long Height => size.Height;
@@ -28,17 +28,14 @@ namespace GameLib
         public MouseState MouseState { get; private set; }
         public KeyboardState Keyboard { get; }
         public Sprite MouseOnSprite { get; private set; }
-        public int PlayerId { get; }
-        public int RoomId { get; }
         public SpriteRefrenceManager SpriteRefrenceManager;
+
         Random random = new Random();
-        public GameManager(Size size, int playerId, int roomId)
+        public GameManager(Size size)
         {
-            PlayerId = playerId;
-            RoomId = roomId;
             MouseOnSprite = null;
             Keyboard = new KeyboardState();
-            gameSprite = new EmptySprite(Vector2.Zero, Vector2.One, Vector2.Zero, 0);
+            GameSprite = new EmptySprite(Vector2.Zero, Vector2.One, Vector2.Zero, 0);
             SpriteRefrenceManager = new SpriteRefrenceManager();
             this.size = size;
             MouseState = MouseState.Hover;
@@ -46,12 +43,12 @@ namespace GameLib
         }
         public async Task Update(MyCanvas2DContext context, TimeSpan elapsedTime, CancellationToken ct)
         {
-            MouseOnSprite = gameSprite.GameManagerUpdate(MousePos, MouseState, elapsedTime, SpriteRefrenceManager);
+            MouseOnSprite = GameSprite.GameManagerUpdate(MousePos, MouseState, elapsedTime, SpriteRefrenceManager);
             OnUpdate?.Invoke(elapsedTime);
             await context.BeginBatchAsync();
             await context.SetFillStyleAsync(BackColor.ToString());
             await context.FillRectAsync(0, 0, Width, Height);
-            await gameSprite.Draw(context, SpriteRefrenceManager);
+            await GameSprite.Draw(context, SpriteRefrenceManager);
             await context.EndBatchAsync();
         }
 
@@ -94,20 +91,21 @@ namespace GameLib
             } while (SpriteRefrenceManager.SpriteRefrences.ContainsKey(address));
             return address;
         }
-        public void AddSprite(Sprite sprite)
+        public int AddSprite(Sprite sprite)
         {
             int spriteAddress = GetNewSpriteAddress();
             SpriteRefrenceManager.SpriteAddresses.Add(sprite, spriteAddress);
             SpriteRefrenceManager.SpriteRefrences.Add(spriteAddress, sprite);
-            gameSprite.AddChild(sprite, SpriteRefrenceManager);
+            GameSprite.AddChild(sprite, SpriteRefrenceManager);
+            return spriteAddress;
         }
         public void AddSprite(int sprite)
         {
-            gameSprite.AddChild(SpriteRefrenceManager.SpriteRefrences[sprite], SpriteRefrenceManager);
+            GameSprite.AddChild(SpriteRefrenceManager.SpriteRefrences[sprite], SpriteRefrenceManager);
         }
         public bool RemoveSprite(Sprite sprite)
         {
-            if (gameSprite.RemoveChild(sprite, SpriteRefrenceManager))
+            if (GameSprite.RemoveChild(sprite, SpriteRefrenceManager))
             {
                 int spriteAddress = SpriteRefrenceManager.SpriteAddresses[sprite];
                 SpriteRefrenceManager.SpriteRefrences.Remove(spriteAddress);
@@ -116,22 +114,23 @@ namespace GameLib
             }
             return false;
         }
+
         public void ClearSprites()
         {
-            gameSprite.ClearChildren(SpriteRefrenceManager);
+            GameSprite.ClearChildren(SpriteRefrenceManager);
         }
         public void MoveChildToFront(Sprite sprite)
         {
-            gameSprite.MoveChildToFront(sprite, SpriteRefrenceManager);
+            GameSprite.MoveChildToFront(sprite, SpriteRefrenceManager);
         }
         public void MoveChildToBack(Sprite sprite)
         {
-            gameSprite.MoveChildToBack(sprite, SpriteRefrenceManager);
+            GameSprite.MoveChildToBack(sprite, SpriteRefrenceManager);
         }
 
         public string JsonSerializeSprites()
         {
-            return JsonConvert.SerializeObject(gameSprite);
+            return JsonConvert.SerializeObject(GameSprite);
         }
     }
 

@@ -12,39 +12,39 @@ using System.Threading.Tasks;
 
 namespace TableTopSim.Client.SpecificGame
 {
+    public class GameDataUpdate
+    {
+        public ArrayWithOffset<byte> Data { get; set; }
+        public ArrayWithOffset<byte> GameSpritesData { get; set; }
+        public GameDataUpdate(ArrayWithOffset<byte> data, ArrayWithOffset<byte> gameSpritesData)
+        {
+            Data = data;
+            GameSpritesData = gameSpritesData;
+        }
+    }
     public class GameProgram
     {
-        RectSprite rectSprite;
-        RectSprite childSprite;
         Vector2 MousePos => manager.MousePos;
         GameManager manager;
-        ImageSprite imageSprite;
         TimeSpan totalTime = new TimeSpan(0);
-        Sprite selectedSprite = null;
+        int? selectedSpriteKey = null;
         Vector2 selectionOffset;
-        ElementReference cardBack, king, queen;
+        //ElementReference cardBack, king, queen;
         MyClientWebSocket ws;
         SpriteRefrenceManager spriteRefManager => manager.SpriteRefrenceManager;
 
         int roomId;
-        internal GameProgram(GameManager manager, MyClientWebSocket ws, int roomId,
-            ElementReference cardBack, ElementReference king, ElementReference queen)
+        GameDataUpdate completeUpdateData = null;
+        object gameStateLockObject = new object();
+        Queue<GameDataUpdate> partialDataUpdates = new Queue<GameDataUpdate>();
+        internal GameProgram(GameManager manager, MyClientWebSocket ws, int roomId)
+        //ElementReference cardBack, ElementReference king, ElementReference queen)
         {
             this.manager = manager;
-            this.cardBack = cardBack;
-            this.king = king;
-            this.queen = queen;
             this.ws = ws;
             this.roomId = roomId;
-            rectSprite = new RectSprite(new Vector2(200, 200), new Vector2(100, 200), new Color(0, 0, 255), new Vector2(50, 100), 0);
-
-            AddSprite(rectSprite);
-            AddSprite(childSprite = new RectSprite(new Vector2(200, 200), new Vector2(10, 10), new Color(255, 0, 255), new Vector2(0, 0), 45));
-            AddSprite(imageSprite = new ImageSprite(new Vector2(300, 300), cardBack, new Vector2(170, 235), new Vector2(170, 235) / 2));
-            AddSprite(imageSprite = new ImageSprite(new Vector2(100, 50), king, new Vector2(100, 100), new Vector2(100, 100) / 2));
-            AddSprite(imageSprite = new ImageSprite(new Vector2(250, 50), queen, new Vector2(100, 100), new Vector2(100, 100) / 2));
             //string test = manager.JsonSerializeSprites();
-            
+
 
 
             //manager.DataLayer.AddData(dataObjects, dataRelationships, false);
@@ -59,98 +59,140 @@ namespace TableTopSim.Client.SpecificGame
 
             ws.OnRecieved += OnRecivedWSMessage;
         }
-
-        void OnRecivedWSMessage(ArraySegment<byte> message)
+        public void Dispose()
         {
+            ws.OnRecieved -= OnRecivedWSMessage;
+        }
+        void OnRecivedWSMessage(ArraySegment<byte> origMessage)
+        {
+            ArrayWithOffset<byte> message = new ArrayWithOffset<byte>(origMessage.ToArray());
+
             MessageType mt = (MessageType)message[0];
+            message = message.Slice(1);
             if (mt == MessageType.GameState || mt == MessageType.ChangeGameState)
             {
-                int roomId = MessageExtensions.GetNextInt(ref message);
+                int roomId = BitConverter.ToInt32(message.Array, message.Offset);
+                message.Offset += 4;
                 if (this.roomId != roomId)
                 {
                     throw new NotImplementedException();
                 }
-                int dataLength = MessageExtensions.GetNextInt(ref message);
-                byte[] serializedData = message.Array.Skip(message.Offset).Take(dataLength).ToArray();
+                int dataLength = BitConverter.ToInt32(message.Array, message.Offset);
+                message.Offset += 4;
+                ArrayWithOffset<byte> serializedData = message.Slice(0, dataLength);
+                message.Offset += dataLength;
+                int spritesSpritesLength = BitConverter.ToInt32(message.Array, message.Offset);
+                message.Offset += 4;
+                ArrayWithOffset<byte> serializeGameSprites = message.Slice(0, spritesSpritesLength);
                 if (mt == MessageType.GameState)
                 {
-                    Dictionary<int, Sprite> newSprites = GameSerialize.DeserializeGameData<Dictionary<int, Sprite>>(serializedData);
-                    spriteRefManager.Reset();
-                    foreach (var key in newSprites.Keys)
+                    lock (gameStateLockObject)
                     {
-                        Sprite sprite = newSprites[key];
-                        spriteRefManager.SpriteAddresses.Add(sprite, key);
-                        spriteRefManager.SpriteRefrences.Add(key, sprite);
-                        sprite.OnPropertyChanged += OnPropertyChanged;
+                        completeUpdateData = new GameDataUpdate(serializedData, serializeGameSprites);
+                        partialDataUpdates.Clear();
                     }
                 }
                 else
                 {
-                    spriteRefManager.SpriteRefrences = GameSerialize.DeserializeEditGameData(spriteRefManager.SpriteRefrences, serializedData);
-                    foreach(var key in spriteRefManager.SpriteRefrences.Keys)
+                    lock (gameStateLockObject)
                     {
-                        Sprite sprite = spriteRefManager.SpriteRefrences[key];
-                        sprite.OnPropertyChanged -= OnPropertyChanged;
-                        sprite.OnPropertyChanged += OnPropertyChanged;
+                        partialDataUpdates.Enqueue(new GameDataUpdate(serializedData, serializeGameSprites));
                     }
-                    spriteRefManager.UpdateSpriteAddresses();
                 }
             }
         }
 
-
-        void AddSprite(Sprite sprite)
+        void SendChangedWs()
         {
-            throw new NotImplementedException();
-            manager.AddSprite(sprite);
-            //sprites.Add(sprite);
-            sprite.OnPropertyChanged += OnPropertyChanged;
+            if (changedProperties.Count > 0)
+            {
+                List<byte> sendBytes = new List<byte>();
+                sendBytes.Add((byte)MessageType.ChangeGameState);
+                sendBytes.AddRange(BitConverter.GetBytes((long)0));
+                sendBytes.AddRange(BitConverter.GetBytes(roomId));
+
+                List<byte> specificSerializedData = GameSerialize.SerializeGameData(spriteRefManager.SpriteRefrences, changedProperties);
+                sendBytes.AddRange(BitConverter.GetBytes(specificSerializedData.Count));
+                sendBytes.AddRange(specificSerializedData);
+                List<byte> serializedGameSprites = GameSerialize.SerializeGameData(manager.GameSprite.Children);
+                sendBytes.AddRange(BitConverter.GetBytes(serializedGameSprites.Count));
+                sendBytes.AddRange(serializedGameSprites);
+
+                _ = ws.SendMessageAsync(new ArraySegment<byte>(sendBytes.ToArray()));
+            }
+            changedProperties.Clear();
         }
+
+        bool ignorePropertyChanged = false;
+        Dictionary<object, HashSet<int>> changedProperties = new Dictionary<object, HashSet<int>>();
 
         void OnPropertyChanged(Sprite sprite, ushort propertyId)
         {
+            if (!ignorePropertyChanged)
+            {
+                if(changedProperties.Count == 0)
+                {
+                    changedProperties.Add(spriteRefManager.SpriteRefrences, new HashSet<int>());
+                }
+                var dictHash = changedProperties[spriteRefManager.SpriteRefrences];
+                int spriteAddress = spriteRefManager.SpriteAddresses[sprite];
+                if (!dictHash.Contains(spriteAddress))
+                {
+                    dictHash.Add(spriteAddress);
+                }
+                if (!changedProperties.ContainsKey(sprite))
+                {
+                    changedProperties.Add(sprite, new HashSet<int>());
+                }
+                var spriteHash = changedProperties[sprite];
+                if (!spriteHash.Contains(propertyId))
+                {
+                    spriteHash.Add(propertyId);
+                }
+            }
         }
 
         private void OnKeyUp(KeyInfo keyInfo)
         {
-            if (!keyInfo.LastRepeat && keyInfo.Code == "KeyR")
-            {
-                float currentRot = Extensions.GetPositiveRotation(imageSprite.Rotation);
-                float mod90 = currentRot % 90;
-                if (manager.Keyboard.ShiftKey)
-                {
-                    imageSprite.Rotation -= mod90;
-                    imageSprite.Rotation -= mod90 == 0 ? 90 : 0;
-                }
-                else
-                {
-                    imageSprite.Rotation += 90 - mod90;
-                }
-            }
+            //if (!keyInfo.LastRepeat && keyInfo.Code == "KeyR")
+            //{
+            //    float currentRot = Extensions.GetPositiveRotation(imageSprite.Rotation);
+            //    float mod90 = currentRot % 90;
+            //    if (manager.Keyboard.ShiftKey)
+            //    {
+            //        imageSprite.Rotation -= mod90;
+            //        imageSprite.Rotation -= mod90 == 0 ? 90 : 0;
+            //    }
+            //    else
+            //    {
+            //        imageSprite.Rotation += 90 - mod90;
+            //    }
+            //}
         }
 
         private void OnKeyDown(KeyInfo keyInfo)
         {
-            if (keyInfo.Repeat && keyInfo.Code == "KeyR")
-            {
-                Vector2 relativePoint = manager.MousePos - imageSprite.Position;
-                imageSprite.Rotation = Extensions.RadiansToDegrees(-(float)Math.Atan2(relativePoint.X, relativePoint.Y));
-            }
+            //if (keyInfo.Repeat && keyInfo.Code == "KeyR")
+            //{
+            //    Vector2 relativePoint = manager.MousePos - imageSprite.Position;
+            //    imageSprite.Rotation = Extensions.RadiansToDegrees(-(float)Math.Atan2(relativePoint.X, relativePoint.Y));
+            //}
         }
 
         private void MouseDown()
         {
-            if (selectedSprite != null)
+            if (selectedSpriteKey != null)
             {
-                selectedSprite.Scale /= 1.1f;
-                selectedSprite = null;
+                spriteRefManager.SpriteRefrences[selectedSpriteKey.Value].Scale /= 1.1f;
+                selectedSpriteKey = null;
             }
             else if (manager.MouseOnSprite != null)
             {
-                selectedSprite = manager.MouseOnSprite;
-                selectionOffset = MousePos - selectedSprite.Position;
-                manager.MoveChildToFront(selectedSprite);
-                selectedSprite.Scale *= 1.1f;
+                Sprite s = manager.MouseOnSprite;
+                selectedSpriteKey = spriteRefManager.SpriteAddresses[s];
+                selectionOffset = MousePos - s.Position;
+                manager.MoveChildToFront(s);
+                s.Scale *= 1.1f;
             }
         }
         private void MouseUp()
@@ -161,33 +203,76 @@ namespace TableTopSim.Client.SpecificGame
         {
             totalTime += elapsedTime;
 
-            if (selectedSprite != null)
+            GameDataUpdate completeUpdate = null;
+            Queue<GameDataUpdate> pDataUpdates = new Queue<GameDataUpdate>();
+            lock (gameStateLockObject)
             {
-                selectedSprite.Position = manager.MousePos - selectionOffset;
+                if (completeUpdateData != null)
+                {
+                    completeUpdate = completeUpdateData;
+                    completeUpdateData = null;
+                }
+                while (partialDataUpdates.Count > 0)
+                {
+                    pDataUpdates.Enqueue(partialDataUpdates.Dequeue());
+                }
             }
-            //rectSprite.Scale += new Vector2(0.001f, 0.001f);
-            //rectSprite.Rotation += 0.1f;
-            //rectSprite.Position += new Vector2(0.001f, 0.001f);
-            //childSprite.Position -= new Vector2(0.2f, 0.2f);
-            //childSprite.Rotation += 1;
-            //childSprite.Scale += new Vector2(0.001f, 0.001f);
+            ignorePropertyChanged = true;
+            GameDataUpdate lastUpdate = completeUpdate;
+            if (completeUpdate != null)
+            {
+                var spritesData = GameSerialize.DeserializeGameData<Dictionary<int, Sprite>>(completeUpdate.Data);
+                spriteRefManager.Reset();
+                foreach (var key in spritesData.Keys)
+                {
+                    Sprite sprite = spritesData[key];
+                    //spriteRefManager.SpriteAddresses.Add(sprite, key);
+                    spriteRefManager.SpriteRefrences.Add(key, sprite);
+                }
+            }
+            while (pDataUpdates.Count > 0)
+            {
+                GameDataUpdate pUpdate = pDataUpdates.Dequeue();
+
+                spriteRefManager.SpriteRefrences = GameSerialize.DeserializeEditGameData(spriteRefManager.SpriteRefrences, pUpdate.Data, null);
+
+                lastUpdate = pUpdate;
+            }
+            spriteRefManager.UpdateSpriteAddresses();
+
+            if (lastUpdate != null)
+            {
+                List<int> gameSpriteSprites = GameSerialize.DeserializeGameData<List<int>>(lastUpdate.GameSpritesData);
+                manager.ClearSprites();
+                foreach (var s in gameSpriteSprites)
+                {
+                    manager.AddSprite(s);
+                }
+            }
+
+            foreach (var s in spriteRefManager.SpriteRefrences.Values)
+            {
+                s.OnPropertyChanged -= OnPropertyChanged;
+                s.OnPropertyChanged += OnPropertyChanged;
+            }
+            ignorePropertyChanged = false;
+            if (selectedSpriteKey != null)
+            {
+                if (spriteRefManager.SpriteRefrences.ContainsKey(selectedSpriteKey.Value))
+                {
+                    spriteRefManager.SpriteRefrences[selectedSpriteKey.Value].Position = manager.MousePos - selectionOffset;
+                }
+                else
+                {
+
+                    selectedSpriteKey = null;
+                }
+            }
 
 
-            //if (selected)
-            //{
-            //    rectSprite.Position = MousePos;
-            //    rectSprite.Rotation += 1;
-            //    manager.DataLayer.SetPos(rectSprite.X, rectSprite.Y, rectSprite.Rotation);
-            //}
-            //else
-            //{
-            //    var getPos = manager.DataLayer.GetPos();
-            //    if(getPos != null)
-            //    {
-            //        rectSprite.Position = new Vector2(getPos.Value.x, getPos.Value.y);
-            //        rectSprite.Rotation = getPos.Value.rot;
-            //    }
-            //}
+
+
+            SendChangedWs();
         }
 
     }

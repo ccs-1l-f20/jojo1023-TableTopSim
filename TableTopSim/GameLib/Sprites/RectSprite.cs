@@ -20,7 +20,6 @@ namespace GameLib.Sprites
 
         static RectSprite()
         {
-            GetDeafaultSprites.Add(ObjectTypes.RectSprite, (() => new RectSprite(), typeof(RectSprite)));
             GameSerialize.AddType<RectSprite>(GameSerialize.GenericSerializeFunc, GameSerialize.GenericDeserializeFunc, true, 
                 GameSerialize.GenericDeserializeEditFunc, GameSerialize.CustomGenericDeserializeFunc);
         }

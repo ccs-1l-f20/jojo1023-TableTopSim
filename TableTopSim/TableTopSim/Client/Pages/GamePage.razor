@@ -64,12 +64,13 @@
         }
 
 
-        gameManager = new GameManager(size, PlayerId, RoomId);
-        gameProgram = new GameProgram(gameManager, GlobalData.WebSocket, RoomId, CardBack, King, Queen);
+        gameManager = new GameManager(size);
+        gameProgram = new GameProgram(gameManager, GlobalData.WebSocket, RoomId);
     }
     void OnLocationChanged(object sender, LocationChangedEventArgs args)
     {
         NavigationManager.LocationChanged -= OnLocationChanged;
+        gameProgram.Dispose();
         cts.Cancel();
     }
 

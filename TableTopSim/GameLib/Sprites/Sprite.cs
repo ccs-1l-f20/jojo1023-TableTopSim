@@ -35,7 +35,7 @@ namespace GameLib.Sprites
         [GameSerializableData(4)]
         public float Rotation { get => rotation; set { rotation = value; NotifyPropertyChanged(4); } }
 
-        protected List<int> children;
+        public List<int> Children { get; private set; }
         Dictionary<int, int> childrenIndexes;
 
         float layerDepth = 0;
@@ -59,6 +59,9 @@ namespace GameLib.Sprites
         public event Action<Sprite, ushort> OnPropertyChanged;
         static Sprite()
         {
+            GetDeafaultSprites.Add(ObjectTypes.RectSprite, (() => new RectSprite(), typeof(RectSprite)));
+            GetDeafaultSprites.Add(ObjectTypes.ImageSprite, (() => new ImageSprite(), typeof(ImageSprite)));
+            GetDeafaultSprites.Add(ObjectTypes.EmptySprite, (() => new EmptySprite(), typeof(EmptySprite)));
             GameSerialize.AddType<Sprite>(GameSerialize.GenericSerializeFunc, DeserializeSprite, true, DeserializeEditSprite);
         }
         public Sprite(ObjectTypes objectType)
@@ -68,7 +71,7 @@ namespace GameLib.Sprites
             Origin = Vector2.Zero;
             Scale = Vector2.One;
             Rotation = 0;
-            children = new List<int>();
+            Children = new List<int>();
             childrenIndexes = new Dictionary<int, int>();
             parent = null;
         }
@@ -79,7 +82,7 @@ namespace GameLib.Sprites
             Origin = origin;
             Scale = scale;
             Rotation = rotation;
-            children = new List<int>();
+            Children = new List<int>();
             childrenIndexes = new Dictionary<int, int>();
             parent = null;
         }
@@ -87,8 +90,8 @@ namespace GameLib.Sprites
         public void AddChild(Sprite sprite, SpriteRefrenceManager refManager)
         {
             int spriteAddress = refManager.SpriteAddresses[sprite];
-            childrenIndexes.Add(spriteAddress, children.Count);
-            children.Add(spriteAddress);
+            childrenIndexes.Add(spriteAddress, Children.Count);
+            Children.Add(spriteAddress);
             sprite.parent = this;
             //childrenIndexes.Add(spriteAddress, -1);
             //int prev = spriteAddress;
@@ -111,7 +114,7 @@ namespace GameLib.Sprites
             int spriteAddress = refManager.SpriteAddresses[sprite];
             if(childrenIndexes.ContainsKey(spriteAddress))
             {
-                children.RemoveAt(childrenIndexes[spriteAddress]);
+                Children.RemoveAt(childrenIndexes[spriteAddress]);
                 sprite.parent = null;
                 return true;
             }
@@ -139,12 +142,15 @@ namespace GameLib.Sprites
         public void ClearChildren(SpriteRefrenceManager refManager)
         {
             childrenIndexes.Clear();
-            foreach(var sprite in children)
+            foreach(var sprite in Children)
             {
-                refManager.SpriteRefrences[sprite].parent = null;
+                if (refManager.SpriteRefrences.ContainsKey(sprite))
+                {
+                    refManager.SpriteRefrences[sprite].parent = null;
+                }
                 //refManager.SpriteRefrences[sprite].OnLayerDepthChanged -= ChildLayerDepthChanged;
             }
-            children.Clear();
+            Children.Clear();
         }
 
         public void MoveChildToFront(Sprite sprite, SpriteRefrenceManager refManager)
@@ -152,7 +158,7 @@ namespace GameLib.Sprites
             int spriteAddress = refManager.SpriteAddresses[sprite];
             if (childrenIndexes.ContainsKey(spriteAddress))
             {
-                sprite.layerDepth = refManager.SpriteRefrences[children[0]].LayerDepth;
+                sprite.layerDepth = refManager.SpriteRefrences[Children[0]].LayerDepth;
                 sprite.layerDepth = Extensions.MinDecrement(sprite.layerDepth);
                 //ChildLayerDepthChanged(sprite, refManager, true, true);
             }
@@ -162,7 +168,7 @@ namespace GameLib.Sprites
             int spriteAddress = refManager.SpriteAddresses[sprite];
             if (childrenIndexes.ContainsKey(spriteAddress))
             {
-                sprite.layerDepth = refManager.SpriteRefrences[children[children.Count - 1]].LayerDepth;
+                sprite.layerDepth = refManager.SpriteRefrences[Children[Children.Count - 1]].LayerDepth;
                 sprite.layerDepth = Extensions.MinIncrement(sprite.layerDepth);
                 //ChildLayerDepthChanged(sprite, refManager, true, false);
             }
@@ -230,9 +236,9 @@ namespace GameLib.Sprites
 
             SortChildren(refManager);
             //Children are drawn backwards so index 0 is in front
-            for (int i = children.Count - 1; i >= 0; i--)
+            for (int i = Children.Count - 1; i >= 0; i--)
             {
-                await refManager.SpriteRefrences[children[i]].Draw(context, refManager);
+                await refManager.SpriteRefrences[Children[i]].Draw(context, refManager);
             }
             await context.RestoreAsync();
             //await context.RotateAsync(-radians);
@@ -244,9 +250,9 @@ namespace GameLib.Sprites
             bool reSort = false;
             float lastLayerDepth = float.MinValue;
             List<int> childrenIndexesToRemove = new List<int>();
-            for(int i =0; i < children.Count; i++)
+            for(int i =0; i < Children.Count; i++)
             {
-                int child = children[i];
+                int child = Children[i];
                 if (!refManager.SpriteRefrences.ContainsKey(child))
                 {
                     childrenIndexesToRemove.Add(i);
@@ -262,16 +268,16 @@ namespace GameLib.Sprites
             }
             foreach(var childIndex in childrenIndexesToRemove)
             {
-                int child = children[childIndex];
-                children.RemoveAt(childIndex);
+                int child = Children[childIndex];
+                Children.RemoveAt(childIndex);
                 childrenIndexes.Remove(child);
             }
             if (reSort)
             {
-                children = children.OrderBy(s => refManager.SpriteRefrences[s].LayerDepth).ToList();
-                for(int i = 0; i < children.Count; i++)
+                Children = Children.OrderBy(s => refManager.SpriteRefrences[s].LayerDepth).ToList();
+                for(int i = 0; i < Children.Count; i++)
                 {
-                    childrenIndexes[children[i]] = i;
+                    childrenIndexes[Children[i]] = i;
                 }
             }
         }
@@ -290,7 +296,7 @@ namespace GameLib.Sprites
 
             OverideUpdate(mousePos, mouseState, elapsedTime);
 
-            foreach (var child in children)
+            foreach (var child in Children)
             {
                 refManager.SpriteRefrences[child].OverideUpdate(mousePos, mouseState, elapsedTime);
             }
@@ -303,7 +309,7 @@ namespace GameLib.Sprites
             bool prevMouseOver = mouseOver;
             Sprite mouseOnSprite = null;
             mouseOver = false;
-            foreach (var child in children)
+            foreach (var child in Children)
             {
                 var childInfo = refManager.SpriteRefrences[child].MouseInHitboxOrChildren(point, mouseState, mouseBlocked, refManager);
                 if (childInfo.mouseOver)
@@ -359,10 +365,13 @@ namespace GameLib.Sprites
         {
             var propertyBytes = GameSerialize.GetPropertyBytes(bytes);
             ObjectTypes objectType = (ObjectTypes)propertyBytes[objectTypeDataId][0];
+            var countT = GetDeafaultSprites.Count;
+            var keyTest = GetDeafaultSprites.First().Key;
+            var test = GetDeafaultSprites[objectType];
             Sprite dataObject = GetDeafaultSprites[objectType].constructor.Invoke();
-            return (Sprite)GameSerialize.CustomDeserialize(dataObject, propertyBytes);
+            return (Sprite)GameSerialize.CustomDeserialize(dataObject, propertyBytes, null);
         }
-        static Sprite DeserializeEditSprite(Sprite dataObject,  TypeSerializableInfo<Sprite> info, ArrayWithOffset<byte> bytes)
+        static Sprite DeserializeEditSprite(Sprite dataObject,  TypeSerializableInfo<Sprite> info, ArrayWithOffset<byte> bytes, Dictionary<object, HashSet<int>> dataToIgnore)
         {
             var propertyBytes = GameSerialize.GetPropertyBytes(bytes);
             ObjectTypes objectType = (ObjectTypes)propertyBytes[objectTypeDataId][0];
@@ -371,7 +380,7 @@ namespace GameLib.Sprites
             {
                 dataObject = spriteTypeInfo.constructor.Invoke();
             }
-            return (Sprite)GameSerialize.CustomDeserialize(dataObject, propertyBytes);
+            return (Sprite)GameSerialize.CustomDeserialize(dataObject, propertyBytes, dataToIgnore);
         }
         protected void NotifyPropertyChanged(ushort propertyDataId)
         {
@@ -383,7 +392,6 @@ namespace GameLib.Sprites
     {
         static EmptySprite()
         {
-            GetDeafaultSprites.Add(ObjectTypes.EmptySprite, (() => new EmptySprite(), typeof(EmptySprite)));
             GameSerialize.AddType<EmptySprite>(GameSerialize.GenericSerializeFunc, GameSerialize.GenericDeserializeFunc, true,
                 GameSerialize.GenericDeserializeEditFunc, GameSerialize.CustomGenericDeserializeFunc);
         }

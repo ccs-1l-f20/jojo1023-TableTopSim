@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
@@ -61,11 +62,11 @@ namespace DataLayer
 
         async Task ReceiveLoop()
         {
-            var buffer = new ArraySegment<byte>(new byte[1024 * 4]);
+            var buffer = new ArraySegment<byte>(new byte[65536]);
             while (!cts.IsCancellationRequested)
             {
                 var received = await webSocket.ReceiveAsync(buffer, cts.Token);
-                var arrSeg = new ArraySegment<byte>(buffer.Array, 0, received.Count);
+                var arrSeg = new ArraySegment<byte>(buffer.Array.Take(received.Count).ToArray());
                 OnRecivedMessageId(arrSeg);
                 OnRecieved?.Invoke(arrSeg);
             }

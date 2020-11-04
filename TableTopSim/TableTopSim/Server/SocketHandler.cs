@@ -35,17 +35,18 @@ namespace TableTopSim.Server
                 MessageFunctions.Add(MessageType.JoinRoom, OnJoinRoom);
                 MessageFunctions.Add(MessageType.StartGame, OnStartGame);
                 MessageFunctions.Add(MessageType.ReJoin, OnReJoin);
+                MessageFunctions.Add(MessageType.ChangeGameState, ChangeGameState);
             }
 
 
-            RectSprite rectSprite = new RectSprite(new Vector2(1, 2), new Vector2(3, 4), new GameLib.Color(123, 223, 255), Vector2.Zero, 45);
-            EmptySprite emptySprite = new EmptySprite(new Vector2(10, 11), new Vector2(3, 3), new Vector2(-1, -1), -135);
-            rectSprite.LayerDepth = 0.3141592f;
-            var dict = new Dictionary<int, Sprite> { { 0, rectSprite }, { 1, emptySprite } };
-            var b = GameSerialize.SerializeDict(dict, new Dictionary<object, HashSet<int>> { { dict, new HashSet<int> { 0, 1 } },
-                {emptySprite, new HashSet<int>() { 0, 1,4} } }, new HashSet<int>() { 2 });
-            var newDict = new Dictionary<int, Sprite> { { 0,null}, { 2, null } };
-            newDict = GameSerialize.DeserializeEditGameData(newDict, b.ToArray());
+            //RectSprite rectSprite = new RectSprite(new Vector2(1, 2), new Vector2(3, 4), new GameLib.Color(123, 223, 255), Vector2.Zero, 45);
+            //EmptySprite emptySprite = new EmptySprite(new Vector2(10, 11), new Vector2(3, 3), new Vector2(-1, -1), -135);
+            //rectSprite.LayerDepth = 0.3141592f;
+            //var dict = new Dictionary<int, Sprite> { { 0, rectSprite }, { 1, emptySprite } };
+            //var b = GameSerialize.SerializeDict(dict, new Dictionary<object, HashSet<int>> { { dict, new HashSet<int> { 0, 1 } },
+            //    {emptySprite, new HashSet<int>() { 0, 1,4} } }, new HashSet<int>() { 2 });
+            //var newDict = new Dictionary<int, Sprite> { { 0,null}, { 2, null } };
+            //newDict = GameSerialize.DeserializeEditGameData(newDict, b.ToArray());
         }
 
         public static SocketHandler Get(SqlConnection sqlConnection)
@@ -65,25 +66,30 @@ namespace TableTopSim.Server
 
         public async Task StartWebsocket(HttpContext context, WebSocket webSocket)
         {
-            var buffer = new byte[1024 * 4];
+            var buffer = new byte[65536];
             WebSocketReceiveResult result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
             while (!result.CloseStatus.HasValue)
             {
                 if (result.Count >= 9)
                 {
-                    ArraySegment<byte> messageBytes = new ArraySegment<byte>(buffer, 0, result.Count);
-                    MessageType msgType = (MessageType)messageBytes[0];
-                    long messageId = BitConverter.ToInt64(messageBytes.Slice(1, 8));
-                    messageBytes = messageBytes.Slice(9);
-                    if (MessageFunctions.ContainsKey(msgType))
-                    {
-                        await MessageFunctions[msgType]?.Invoke(webSocket, messageId, messageBytes);
-                    }
+                    ArraySegment<byte> messageBytes = new ArraySegment<byte>(buffer.Take(result.Count).ToArray());
+                    _ = DealWithMessage(messageBytes, webSocket);
                 }
                 result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
             }
             await webSocket.CloseAsync(result.CloseStatus.Value, result.CloseStatusDescription, CancellationToken.None);
         }
+        async Task DealWithMessage(ArraySegment<byte> messageBytes, WebSocket webSocket)
+        {
+            MessageType msgType = (MessageType)messageBytes[0];
+            long messageId = BitConverter.ToInt64(messageBytes.Slice(1, 8));
+            messageBytes = messageBytes.Slice(9);
+            if (MessageFunctions.ContainsKey(msgType))
+            {
+                await MessageFunctions[msgType]?.Invoke(webSocket, messageId, messageBytes);
+            }
+        }
+
         byte GetBoolByte(bool b)
         {
             return (byte)(b ? 255 : 0);
@@ -163,18 +169,19 @@ namespace TableTopSim.Server
 
         async Task OnStartGame(WebSocket ws, long messageId, ArraySegment<byte> msgBytes)
         {
-            MessageType msgType = MessageType.StartGame;
+            //MessageType msgType = MessageType.StartGame;
             int roomId = MessageExtensions.GetNextInt(ref msgBytes);
             int playerId = MessageExtensions.GetNextInt(ref msgBytes);
 
             bool gameStarted = await RoomController.StartGame(sqlConnection, roomId, playerId);
             if (gameStarted && GameRooms.ContainsKey(roomId))
             {
-                GameRooms[roomId].GameStarted = true;
-                List<byte> sendBytes = new List<byte>();
-                sendBytes.Add((byte)msgType);
-                sendBytes.AddRange(BitConverter.GetBytes(roomId));
-                await GameRooms[roomId].SendToRoom(new ArraySegment<byte>(sendBytes.ToArray()));
+                await GameRooms[roomId].StartGame();
+                //GameRooms[roomId].GameStarted = true;
+                //List<byte> sendBytes = new List<byte>();
+                //sendBytes.Add((byte)msgType);
+                //sendBytes.AddRange(BitConverter.GetBytes(roomId));
+                //await GameRooms[roomId].SendToRoom(new ArraySegment<byte>(sendBytes.ToArray()));
             }
         }
 
@@ -200,6 +207,16 @@ namespace TableTopSim.Server
                 }
             }
             await ws.SendAsync(new ArraySegment<byte>(sendBytes.ToArray()), WebSocketMessageType.Binary, true, CancellationToken.None);
+        }
+
+        
+        async Task ChangeGameState(WebSocket ws, long messageId, ArraySegment<byte> msgBytes)
+        {
+            int roomId = MessageExtensions.GetNextInt(ref msgBytes);
+            if (GameRooms.ContainsKey(roomId))
+            {
+                await GameRooms[roomId].RecievedChangeGame(ws, msgBytes);
+            }
         }
         #endregion
     }
