@@ -8,10 +8,14 @@ namespace GameLib.Sprites
 {
     public class SpriteRefrenceManager
     {
+        Dictionary<int, Sprite> defaultSprites;
+        Dictionary<Sprite, int> defaultSpriteAddresses;
         public Dictionary<int, Sprite> SpriteRefrences { get; set; }
         public Dictionary<Sprite, int> SpriteAddresses { get; set; }
-        public SpriteRefrenceManager()
+        public SpriteRefrenceManager(Dictionary<int, Sprite> defaultSprites)
         {
+            this.defaultSprites = defaultSprites;
+            defaultSpriteAddresses = defaultSprites.ToDictionary(kv => kv.Value, kv => kv.Key);
             SpriteRefrences = new Dictionary<int, Sprite>();
             SpriteAddresses = new Dictionary<Sprite, int>();
         }
@@ -20,42 +24,60 @@ namespace GameLib.Sprites
             SpriteRefrences.Clear();
             SpriteAddresses.Clear();
         }
-        //public Sprite GetSprite(int address)
-        //{
-        //    Sprite s = null;
-        //    lock (SpriteRefrences)
-        //    {
-        //        if (SpriteRefrences.ContainsKey(address))
-        //        {
-        //            s = SpriteRefrences[address];
-        //        }
-        //    }
-        //    return s;
-        //}
-        //public bool ContainsAddress(int address)
-        //{
-        //    bool b = false;
-        //    lock (SpriteRefrences)
-        //    {
-
-        //    }
-        //    return b;
-        //}
-        //public int GetAddress(Sprite sprite)
-        //{
-        //    int a;
-        //    lock (SpriteRefrences)
-        //    {
-        //        a = SpriteAddresses[sprite];
-        //    }
-        //    return a;
-        //}
+        public Sprite GetSprite(int address)
+        {
+            if (defaultSprites.ContainsKey(address))
+            {
+                return defaultSprites[address];
+            }
+            return SpriteRefrences[address];
+        }
+        public bool ContainsAddress(int address)
+        {
+            return defaultSprites.ContainsKey(address) || SpriteRefrences.ContainsKey(address);
+        }
+        public int GetAddress(Sprite sprite)
+        {
+            if (defaultSpriteAddresses.ContainsKey(sprite))
+            {
+                return defaultSpriteAddresses[sprite];
+            }
+            return SpriteAddresses[sprite];
+        }
+        public void AddSprite(int address, Sprite sprite)
+        {
+            if (defaultSprites.ContainsKey(address) || defaultSpriteAddresses.ContainsKey(sprite))
+            {
+                throw new IndexOutOfRangeException();
+            }
+            SpriteRefrences.Add(address, sprite);
+            SpriteAddresses.Add(sprite, address);
+        }
+        public bool RemoveSprite(int address)
+        {
+            if (SpriteRefrences.ContainsKey(address))
+            {
+                Sprite s = SpriteRefrences[address];
+                SpriteRefrences.Remove(address);
+                SpriteAddresses.Remove(s);
+                return true;
+            }
+            return false;
+        }
+        public bool RemoveSprite(Sprite sprite)
+        {
+            if (SpriteAddresses.ContainsKey(sprite))
+            {
+                int a = SpriteAddresses[sprite];
+                SpriteAddresses.Remove(sprite);
+                SpriteRefrences.Remove(a);
+                return true;
+            }
+            return false;
+        }
         public void UpdateSpriteAddresses()
         {
-            //lock (LockObject)
-            //{
-                SpriteAddresses = SpriteRefrences.ToDictionary(kv => kv.Value, kv => kv.Key);
-            //}
+            SpriteAddresses = SpriteRefrences.ToDictionary(kv => kv.Value, kv => kv.Key);
         }
     }
 }

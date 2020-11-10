@@ -1,0 +1,131 @@
+﻿@page "/AddGame"
+@using TableTopSim.Client.Components
+@using BlazorInputFile
+@using DataLayer
+@using System.IO
+@using System.Text
+<FileDialog OnChange="ViewFile" @ref="fileDialog" Accept=".json,image/*" AllowMultiple="true" />
+<h3 style="margin-bottom: 15px">Add New Game</h3>
+
+
+Game Name:
+<TextEdit Text="@gameName" TextChanged="GameNameChanged" MaxLength="100" Style="width:500px;margin-bottom:15px"></TextEdit>
+
+<Button Color="Color.Primary" Clicked="OnButtonClick">Select Files</Button>
+
+<h4 style="margin-top: 25px">Files:</h4>
+
+<Table>
+    <TableHeader>
+        <TableHeaderCell>Type</TableHeaderCell>
+        <TableHeaderCell>Name</TableHeaderCell>
+        <TableHeaderCell></TableHeaderCell>
+        <TableHeaderCell></TableHeaderCell>
+    </TableHeader>
+    <TableBody>
+        <TableRow>
+            <TableHeaderCell>Game Info</TableHeaderCell>
+            @if (jsonFile == null)
+            {
+                <TableRowCell></TableRowCell>
+            }
+            else
+            {
+                <TableRowCell>@jsonFile.Name</TableRowCell>
+            }
+            <TableRowCell></TableRowCell>
+            <TableRowCell>
+                <Button Color="Color.Danger" Clicked="DeleteGameInfo" Disabled="jsonFile == null">Delete</Button>
+            </TableRowCell>
+        </TableRow>
+        @foreach (var imageKey in images.Keys)
+        {
+            <TableRow>
+                <TableHeaderCell>Image</TableHeaderCell>
+                <TableRowCell>@imageKey</TableRowCell>
+                <TableRowCell>
+                    <img width="100" height="100" style="object-fit:contain" src="@images[imageKey].Url" asp-append-version="true" />
+                </TableRowCell>
+
+                <TableRowCell>
+                    <Button Color="Color.Danger" Clicked="@(() => DeleteImage(imageKey))">Delete</Button>
+                </TableRowCell>
+            </TableRow>
+        }
+    </TableBody>
+</Table>
+
+
+<Button Color="Color.Primary" Clicked="OnAddGameButtonClick" Disabled="jsonFile == null || gameName == null || gameName.Trim().Length == 0" style="margin-top:5px">Add Game</Button>
+@code {
+    FileDialog fileDialog;
+    IFileListEntry jsonFile = null;
+    Dictionary<string, ImageDto> images = new Dictionary<string, ImageDto>();
+    string gameName = "";
+
+    async Task ViewFile(IFileListEntry[] files)
+    {
+        foreach (var rawFile in files)
+        {
+            if (rawFile != null)
+            {
+                string rfType = rawFile.Type;
+                if (rawFile.Type == "application/json")
+                {
+                    jsonFile = rawFile;
+                }
+                else
+                {
+                    (byte[] bytes, string format) = await rawFile.GetImageBytes();
+                    var image = new ImageDto(0, format, bytes);
+                    image.UpdateUrl();
+                    if (images.ContainsKey(rawFile.Name))
+                    {
+                        images[rawFile.Name] = image;
+                    }
+                    else
+                    {
+                        images.Add(rawFile.Name, image);
+                    }
+                }
+            }
+
+            //if (await ReTryer.Try(400, 3,
+            //async () => await ModelType.UpdateModelTypeImage(Http, pickFileId, bytes, format)))
+            //{
+            //    await ImageUpdate();
+            //}
+            //else
+            //{
+            //    updateTable.ShowMessage("An Error Has Occured");
+            //}
+        }
+
+        StateHasChanged();
+    }
+
+    async Task OnButtonClick()
+    {
+        await fileDialog.Show();
+    }
+
+    void DeleteGameInfo()
+    {
+        jsonFile = null;
+    }
+    void DeleteImage(string name)
+    {
+        if (images.ContainsKey(name))
+        {
+            images.Remove(name);
+        }
+    }
+    void GameNameChanged(string gameName)
+    {
+        this.gameName = gameName;
+    }
+    async Task OnAddGameButtonClick()
+    {
+
+    }
+}

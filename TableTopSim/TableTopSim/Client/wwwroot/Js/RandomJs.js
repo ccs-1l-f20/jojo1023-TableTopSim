@@ -1,4 +1,10 @@
-﻿window.SetFocusTo = (element) => {
+﻿
+
+window.openFileDialog = function (id) {
+    $(id).trigger("click");
+};
+
+window.SetFocusTo = (element) => {
     element.focus();
 };
 

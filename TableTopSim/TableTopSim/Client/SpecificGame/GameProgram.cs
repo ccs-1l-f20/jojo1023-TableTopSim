@@ -24,23 +24,31 @@ namespace TableTopSim.Client.SpecificGame
     }
     public class GameProgram
     {
-        Vector2 MousePos => manager.MousePos;
-        GameManager manager;
+        Vector2 MousePos => Manager.MousePos;
         TimeSpan totalTime = new TimeSpan(0);
         int? selectedSpriteKey = null;
         Vector2 selectionOffset;
+        object selectedLockObject = new object();
         //ElementReference cardBack, king, queen;
         MyClientWebSocket ws;
-        SpriteRefrenceManager spriteRefManager => manager.SpriteRefrenceManager;
+        SpriteRefrenceManager refManager => Manager.SpriteRefrenceManager;
+        EmptySprite gameSprite => Manager.GameSprite;
+        EmptySprite spriteContainer = new EmptySprite();
+        EmptySprite selectedSpritesContainer = new EmptySprite() { LayerDepth = -100 };
 
         int roomId;
         GameDataUpdate completeUpdateData = null;
         object gameStateLockObject = new object();
         Queue<GameDataUpdate> partialDataUpdates = new Queue<GameDataUpdate>();
-        internal GameProgram(GameManager manager, MyClientWebSocket ws, int roomId)
+        public GameManager Manager { get; set; }
+
+        internal GameProgram(Size size, MyClientWebSocket ws, int roomId)
         //ElementReference cardBack, ElementReference king, ElementReference queen)
         {
-            this.manager = manager;
+            Manager = new GameManager(size, new SpriteRefrenceManager(new Dictionary<int, Sprite>() { { 0, spriteContainer }, { 1, selectedSpritesContainer } }));
+            gameSprite.AddChild(spriteContainer, refManager);
+            gameSprite.AddChild(selectedSpritesContainer, refManager);
+
             this.ws = ws;
             this.roomId = roomId;
             //string test = manager.JsonSerializeSprites();
@@ -49,12 +57,12 @@ namespace TableTopSim.Client.SpecificGame
 
             //manager.DataLayer.AddData(dataObjects, dataRelationships, false);
 
-            manager.OnUpdate += Update;
-            manager.OnMouseDown += MouseDown;
-            manager.OnMouseUp += MouseUp;
+            Manager.OnUpdate += Update;
+            Manager.OnMouseDown += MouseDown;
+            Manager.OnMouseUp += MouseUp;
 
-            manager.OnKeyDown += OnKeyDown;
-            manager.OnKeyUp += OnKeyUp;
+            Manager.OnKeyDown += OnKeyDown;
+            Manager.OnKeyUp += OnKeyUp;
 
 
             ws.OnRecieved += OnRecivedWSMessage;
@@ -111,10 +119,14 @@ namespace TableTopSim.Client.SpecificGame
                 sendBytes.AddRange(BitConverter.GetBytes((long)0));
                 sendBytes.AddRange(BitConverter.GetBytes(roomId));
 
-                List<byte> specificSerializedData = GameSerialize.SerializeGameData(spriteRefManager.SpriteRefrences, changedProperties);
+                List<byte> specificSerializedData = GameSerialize.SerializeGameData(refManager.SpriteRefrences, changedProperties);
                 sendBytes.AddRange(BitConverter.GetBytes(specificSerializedData.Count));
                 sendBytes.AddRange(specificSerializedData);
-                List<byte> serializedGameSprites = GameSerialize.SerializeGameData(manager.GameSprite.Children);
+                List<byte> serializedGameSprites;
+                lock (selectedLockObject)
+                {
+                    serializedGameSprites = GameSerialize.SerializeGameData(new List<List<int>>() { spriteContainer.Children, selectedSpritesContainer.Children });
+                }
                 sendBytes.AddRange(BitConverter.GetBytes(serializedGameSprites.Count));
                 sendBytes.AddRange(serializedGameSprites);
 
@@ -130,12 +142,12 @@ namespace TableTopSim.Client.SpecificGame
         {
             if (!ignorePropertyChanged)
             {
-                if(changedProperties.Count == 0)
+                if (changedProperties.Count == 0)
                 {
-                    changedProperties.Add(spriteRefManager.SpriteRefrences, new HashSet<int>());
+                    changedProperties.Add(refManager.SpriteRefrences, new HashSet<int>());
                 }
-                var dictHash = changedProperties[spriteRefManager.SpriteRefrences];
-                int spriteAddress = spriteRefManager.SpriteAddresses[sprite];
+                var dictHash = changedProperties[refManager.SpriteRefrences];
+                int spriteAddress = refManager.GetAddress(sprite);
                 if (!dictHash.Contains(spriteAddress))
                 {
                     dictHash.Add(spriteAddress);
@@ -181,18 +193,31 @@ namespace TableTopSim.Client.SpecificGame
 
         private void MouseDown()
         {
-            if (selectedSpriteKey != null)
+            lock (selectedLockObject)
             {
-                spriteRefManager.SpriteRefrences[selectedSpriteKey.Value].Scale /= 1.1f;
-                selectedSpriteKey = null;
-            }
-            else if (manager.MouseOnSprite != null)
-            {
-                Sprite s = manager.MouseOnSprite;
-                selectedSpriteKey = spriteRefManager.SpriteAddresses[s];
-                selectionOffset = MousePos - s.Position;
-                manager.MoveChildToFront(s);
-                s.Scale *= 1.1f;
+                if (selectedSpriteKey != null)
+                {
+                    Sprite selectedSprite = refManager.GetSprite(selectedSpriteKey.Value);
+                    selectedSprite.Scale /= 1.15f;
+
+                    selectedSpritesContainer.RemoveChild(selectedSpriteKey.Value, refManager);
+                    spriteContainer.AddChild(selectedSpriteKey.Value, refManager);
+                    spriteContainer.MoveChildToFront(selectedSprite, refManager);
+                    selectedSpriteKey = null;
+                }
+                else if (Manager.MouseOnSprite != null)
+                {
+                    Sprite s = Manager.MouseOnSprite;
+                    selectedSpriteKey = refManager.GetAddress(s);
+                    selectionOffset = MousePos - s.Position;
+
+                    spriteContainer.RemoveChild(selectedSpriteKey.Value, refManager);
+                    selectedSpritesContainer.AddChild(selectedSpriteKey.Value, refManager);
+                    selectedSpritesContainer.MoveChildToFront(s, refManager);
+                    s.Scale *= 1.15f;
+                    //Manager.MoveChildToFront(s);
+                    //s.Scale *= 1.1f;
+                }
             }
         }
         private void MouseUp()
@@ -222,50 +247,64 @@ namespace TableTopSim.Client.SpecificGame
             if (completeUpdate != null)
             {
                 var spritesData = GameSerialize.DeserializeGameData<Dictionary<int, Sprite>>(completeUpdate.Data);
-                spriteRefManager.Reset();
+                refManager.Reset();
                 foreach (var key in spritesData.Keys)
                 {
                     Sprite sprite = spritesData[key];
                     //spriteRefManager.SpriteAddresses.Add(sprite, key);
-                    spriteRefManager.SpriteRefrences.Add(key, sprite);
+                    refManager.SpriteRefrences.Add(key, sprite);
                 }
             }
             while (pDataUpdates.Count > 0)
             {
                 GameDataUpdate pUpdate = pDataUpdates.Dequeue();
 
-                spriteRefManager.SpriteRefrences = GameSerialize.DeserializeEditGameData(spriteRefManager.SpriteRefrences, pUpdate.Data, null);
+                refManager.SpriteRefrences = GameSerialize.DeserializeEditGameData(refManager.SpriteRefrences, pUpdate.Data, null);
 
                 lastUpdate = pUpdate;
             }
-            spriteRefManager.UpdateSpriteAddresses();
+            refManager.UpdateSpriteAddresses();
 
             if (lastUpdate != null)
             {
-                List<int> gameSpriteSprites = GameSerialize.DeserializeGameData<List<int>>(lastUpdate.GameSpritesData);
-                manager.ClearSprites();
-                foreach (var s in gameSpriteSprites)
+                List<List<int>> gameSpriteSprites = GameSerialize.DeserializeGameData<List<List<int>>>(lastUpdate.GameSpritesData);
+                List<int> spriteContainerSprites = gameSpriteSprites[0];
+                List<int> selectedSpriteSprites = gameSpriteSprites[1];
+                lock (selectedLockObject)
                 {
-                    manager.AddSprite(s);
+                    spriteContainer.ClearChildren(refManager);
+                    selectedSpritesContainer.ClearChildren(refManager);
+                    foreach (var s in spriteContainerSprites)
+                    {
+                        spriteContainer.AddChild(s, refManager);
+                    }
+                    foreach (var s in selectedSpriteSprites)
+                    {
+                        selectedSpritesContainer.AddChild(s, refManager);
+                    }
                 }
             }
 
-            foreach (var s in spriteRefManager.SpriteRefrences.Values)
+            foreach (var s in refManager.SpriteRefrences.Values)
             {
                 s.OnPropertyChanged -= OnPropertyChanged;
                 s.OnPropertyChanged += OnPropertyChanged;
             }
             ignorePropertyChanged = false;
-            if (selectedSpriteKey != null)
-            {
-                if (spriteRefManager.SpriteRefrences.ContainsKey(selectedSpriteKey.Value))
-                {
-                    spriteRefManager.SpriteRefrences[selectedSpriteKey.Value].Position = manager.MousePos - selectionOffset;
-                }
-                else
-                {
 
-                    selectedSpriteKey = null;
+            lock (selectedLockObject)
+            {
+                if (selectedSpriteKey != null)
+                {
+                    if (refManager.ContainsAddress(selectedSpriteKey.Value))
+                    {
+                        Sprite selectedSprite = refManager.GetSprite(selectedSpriteKey.Value);
+                        selectedSprite.Position = Manager.MousePos - selectionOffset;
+                    }
+                    else
+                    {
+                        selectedSpriteKey = null;
+                    }
                 }
             }
 

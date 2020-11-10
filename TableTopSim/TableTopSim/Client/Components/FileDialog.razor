@@ -1,0 +1,30 @@
+﻿@using BlazorInputFile
+@inject IJSRuntime JSRuntime
+
+@if (AllowMultiple)
+{
+    <InputFile MaxBufferSize="MaxBufferSize" MaxMessageSize="MaxMessageSize" OnChange="OnChange" multiple="multiple"
+               id="@Id" accept="@Accept" style="display: none" />
+}
+else
+{
+    <InputFile MaxBufferSize="MaxBufferSize" MaxMessageSize="MaxMessageSize" OnChange="OnChange"
+               id="@Id" accept="@Accept" style="display: none" />
+}
+@code{
+    [Parameter] public EventCallback<IFileListEntry[]> OnChange { get; set; }
+    [Parameter] public int MaxMessageSize { get; set; } = 20 * 1024;
+    [Parameter] public int MaxBufferSize { get; set; } = 1024 * 1024;
+    [Parameter] public string Accept { get; set; } = "*";
+    [Parameter] public bool AllowMultiple { get; set; } = false;
+
+    public string Id { get; private set; }
+    protected override void OnInitialized()
+    {
+        Id = GetHashCode().ToString();
+    }
+    public async Task Show()
+    {
+        await JSRuntime.InvokeVoidAsync("openFileDialog", "#" + Id);
+    }
+}

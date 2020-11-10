@@ -14,8 +14,10 @@
 <img src="/images/Chess_kdt45.svg" asp-append-version="true" @ref="King" style="display:none" />
 <img src="/images/Chess_qdt45.svg" asp-append-version="true" @ref="Queen" style="display:none" />
 
-<Game Size="size" Cts="cts" GameManager="gameManager" @ref="gameComponent" />
-
+@if (gameProgram != null) 
+{
+<Game Size="size" Cts="cts" GameManager="gameProgram.Manager" @ref="gameComponent" />
+}
 @code {
     [Parameter]
     public int PlayerId { get; set; }
@@ -26,7 +28,6 @@
     ElementReference Queen;
     Game gameComponent;
     GameProgram gameProgram;
-    GameManager gameManager;
     Player thisPlayer;
     GameLib.Size size = new GameLib.Size(1000, 1000);
     CancellationTokenSource cts = new CancellationTokenSource();
@@ -64,8 +65,7 @@
         }
 
 
-        gameManager = new GameManager(size);
-        gameProgram = new GameProgram(gameManager, GlobalData.WebSocket, RoomId);
+        gameProgram = new GameProgram(size, GlobalData.WebSocket, RoomId);
     }
     void OnLocationChanged(object sender, LocationChangedEventArgs args)
     {

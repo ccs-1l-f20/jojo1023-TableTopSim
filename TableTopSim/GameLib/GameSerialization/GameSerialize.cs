@@ -1,4 +1,5 @@
 ﻿using Blazor.Extensions.Canvas.WebGL;
+using Newtonsoft.Json;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -208,7 +209,7 @@ namespace GameLib.GameSerialization
                 bytes.Offset += 4;
                 ushort pLength = BitConverter.ToUInt16(bytes.Array, bytes.Offset);
                 bytes.Offset += 2;
-                if (thisDataToIgnore == null || !thisDataToIgnore.Contains(index)) 
+                if (thisDataToIgnore == null || !thisDataToIgnore.Contains(index))
                 {
                     list[index] = DeserializeEditGameData(list[index], bytes.Slice(0, pLength), dataToIgnore);
                 }
