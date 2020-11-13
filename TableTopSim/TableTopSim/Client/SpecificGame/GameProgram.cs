@@ -15,9 +15,11 @@ namespace TableTopSim.Client.SpecificGame
     public class GameDataUpdate
     {
         public ArrayWithOffset<byte> Data { get; set; }
-        public GameDataUpdate(ArrayWithOffset<byte> data)
+        public ArrayWithOffset<byte> CursorSprites { get; set; }
+        public GameDataUpdate(ArrayWithOffset<byte> data, ArrayWithOffset<byte> cursorSprites = null)
         {
             Data = data;
+            CursorSprites = cursorSprites;
         }
     }
     public class GameProgram
@@ -30,18 +32,23 @@ namespace TableTopSim.Client.SpecificGame
         MyClientWebSocket ws;
         SpriteRefrenceManager refManager => Manager.SpriteRefrenceManager;
 
-        int roomId;
+        int roomId, playerId;
         GameDataUpdate completeUpdateData = null;
         object gameStateLockObject = new object();
         Queue<GameDataUpdate> partialDataUpdates = new Queue<GameDataUpdate>();
         public GameManager Manager { get; set; }
-        internal GameProgram(Size size, MyClientWebSocket ws, int roomId)
+        Dictionary<int, int> cursorSprites = null;
+        Sprite thisCursor = null;
+        Size size;
+        internal GameProgram(Size size, MyClientWebSocket ws, int roomId, int playerId)
         //ElementReference cardBack, ElementReference king, ElementReference queen)
         {
+            this.size = size;
             Manager = new GameManager(size, new SpriteRefrenceManager());
 
             this.ws = ws;
             this.roomId = roomId;
+            this.playerId = playerId;
             //string test = manager.JsonSerializeSprites();
 
 
@@ -51,7 +58,6 @@ namespace TableTopSim.Client.SpecificGame
             Manager.OnUpdate += Update;
             Manager.OnMouseDown += MouseDown;
             Manager.OnMouseUp += MouseUp;
-
             Manager.OnKeyDown += OnKeyDown;
             Manager.OnKeyUp += OnKeyUp;
 
@@ -86,9 +92,13 @@ namespace TableTopSim.Client.SpecificGame
                 //ArrayWithOffset<byte> serializeGameSprites = message.Slice(0, spritesSpritesLength);
                 if (mt == MessageType.GameState)
                 {
+                    dataLength = BitConverter.ToInt32(message.Array, message.Offset);
+                    message.Offset += 4;
+                    ArrayWithOffset<byte> cursorSprites = message.Slice(0, dataLength);
+                    message.Offset += dataLength;
                     lock (gameStateLockObject)
                     {
-                        completeUpdateData = new GameDataUpdate(serializedData);
+                        completeUpdateData = new GameDataUpdate(serializedData, cursorSprites);
                         partialDataUpdates.Clear();
                     }
                 }
@@ -254,6 +264,7 @@ namespace TableTopSim.Client.SpecificGame
                     //spriteRefManager.SpriteAddresses.Add(sprite, key);
                     refManager.SpriteRefrences.Add(key, sprite);
                 }
+                cursorSprites = GameSerialize.DeserializeGameData<Dictionary<int, int>>(completeUpdate.CursorSprites);
             }
             while (pDataUpdates.Count > 0)
             {
@@ -293,10 +304,27 @@ namespace TableTopSim.Client.SpecificGame
                 //    }
                 //}
             }
-
+            if(cursorSprites != null && cursorSprites.ContainsKey(playerId))
+            {
+                thisCursor = refManager.GetSprite(cursorSprites[playerId]);
+                //thisCursor.Visiable = false;
+            }
+            else
+            {
+                thisCursor = null;
+            }
             
             ignorePropertyChanged = false;
 
+            if (thisCursor != null)
+            {
+                Vector2 cursorPos = Manager.MousePos;
+                if (cursorPos != thisCursor.Transform.Position &&
+                    cursorPos.X >= 0 && cursorPos.Y >= 0 && cursorPos.X < size.Width && cursorPos.Y < size.Height) 
+                {
+                    thisCursor.Transform.Position = cursorPos;
+                }
+            }
             //lock (selectedLockObject)
             //{
             //    if (selectedSpriteKey != null)
@@ -314,9 +342,19 @@ namespace TableTopSim.Client.SpecificGame
             //}
 
 
+            if (thisCursor != null)
+            {
+                ignorePropertyChanged = true;
+                thisCursor.Visiable = true;
+            }
 
+            SendChangedWs(); 
 
-            SendChangedWs();
+            if (thisCursor != null)
+            {
+                thisCursor.Visiable = false;
+                ignorePropertyChanged = false;
+            }
         }
 
     }

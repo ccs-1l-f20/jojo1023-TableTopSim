@@ -91,7 +91,7 @@
 
         //gameManager.OnUpdate += TestUpdate;
 
-        gameProgram = new GameProgram(size, GlobalData.WebSocket, RoomId);
+        gameProgram = new GameProgram(size, GlobalData.WebSocket, RoomId, PlayerId);
     }
     void OnLocationChanged(object sender, LocationChangedEventArgs args)
     {

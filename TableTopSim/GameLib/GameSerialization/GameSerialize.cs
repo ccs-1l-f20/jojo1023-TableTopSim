@@ -200,15 +200,11 @@ namespace GameLib.GameSerialization
             bytes.Offset += 4;
             int startOffset = bytes.Offset;
             Type genericType = t.GenericTypeArguments[0];
+            string genTName = genericType.Name;
             object genericTypeDefault = null;
-            if (!genericType.IsValueType)
+            if (genericType.IsValueType)
             {
-                //string tTyest = t.Name;
-                //string test = genericType.FullName;
-                //var cnstr = genericType.TypeInitializer;
-                //genericTypeDefault = genericType.TypeInitializer.Invoke(new object[0]);
                 genericTypeDefault = Activator.CreateInstance(genericType);
-                
             }
             HashSet<int> thisDataToIgnore = null;
             if (dataToIgnore != null && dataToIgnore.ContainsKey(list))

@@ -6,6 +6,7 @@ using Newtonsoft.Json;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Net.WebSockets;
@@ -27,6 +28,7 @@ namespace TableTopSim.Server
         object gameLockObject = new object();
 
         Random random = new Random();
+        Dictionary<int, int> playerCursors;
         public GameRoom(int roomId, int? initPlayerId, WebSocket initPlayerWs)
         {
             refManager = new SpriteRefrenceManager();
@@ -56,10 +58,12 @@ namespace TableTopSim.Server
             } while (refManager.ContainsAddress(address));
             return address;
         }
-        void AddSprite(Sprite sprite)
+        int AddSprite(Sprite sprite)
         {
-            refManager.AddSprite(GetNewSpriteAddress(), sprite);
-            //GameManager.AddSprite(GetNewSpriteAddress(), sprite);
+            int ad = GetNewSpriteAddress();
+            refManager.AddSprite(ad, sprite);
+            sprite.LayerDepth.Layers.Insert(0, 0);
+            return ad;
         }
 
         public async Task StartGame()
@@ -70,6 +74,15 @@ namespace TableTopSim.Server
             sendBytes.AddRange(BitConverter.GetBytes(RoomId));
             await SendToRoom(sendBytes);
             CancellationToken ct = cts.Token;
+            playerCursors = new Dictionary<int, int>();
+            foreach (var pId in PlayerWebSockets.Keys)
+            {
+                RectSprite cursor = new RectSprite(refManager, new Vector2(0, 0), new Vector2(10, 10), new Color(240, 240, 240), Vector2.Zero, -45);
+                int cAd = AddSprite(cursor);
+                cursor.LayerDepth[0] = -1;
+                playerCursors.Add(pId, cAd);
+            }
+
 
             //await Task.Delay(gameStateUpdateLength, ct);
             while (!ct.IsCancellationRequested)
@@ -79,12 +92,34 @@ namespace TableTopSim.Server
                 sendBytes.Clear();
                 sendBytes.Add((byte)MessageType.GameState);
                 sendBytes.AddRange(BitConverter.GetBytes(RoomId));
+
+                foreach (var pId in PlayerWebSockets.Keys)
+                {
+                    if (PlayerWebSockets[pId] != null)
+                    {
+                        if (!playerCursors.ContainsKey(pId))
+                        {
+                            RectSprite cursor = new RectSprite(refManager, new Vector2(0, 0), new Vector2(10, 10), new Color(240, 240, 240), Vector2.Zero, -45);
+                            int cAd = AddSprite(cursor);
+                            cursor.LayerDepth[0] = -1;
+                            playerCursors.Add(pId, cAd);
+                        }
+                    }
+                    else if (playerCursors.ContainsKey(pId))
+                    {
+                        refManager.RemoveSprite(playerCursors[pId]);
+                        playerCursors.Remove(pId);
+                    }
+                }
                 lock (gameLockObject)
                 {
                     var spritesBytes = GameSerialize.SerializeGameData(refManager.SpriteRefrences);
                     sendBytes.AddRange(BitConverter.GetBytes(spritesBytes.Count));
                     sendBytes.AddRange(spritesBytes);
                 }
+                var playerCursorBytes = GameSerialize.SerializeGameData(playerCursors);
+                sendBytes.AddRange(BitConverter.GetBytes(playerCursorBytes.Count));
+                sendBytes.AddRange(playerCursorBytes);
 
                 await SendToRoom(sendBytes);
             }

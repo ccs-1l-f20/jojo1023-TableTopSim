@@ -39,7 +39,10 @@ namespace GameLib.Sprites
 
         public int? Parent { get => Transform.Parent; set { Transform.Parent = value; } }
 
+        bool visable = true;
 
+        //[GameSerializableData(3)]
+        public bool Visiable { get => visable; set { visable = value; NotifyPropertyChanged(3); } }
 
         bool mouseOver = false;
 
@@ -99,12 +102,15 @@ namespace GameLib.Sprites
 
         public async Task Draw(MyCanvas2DContext context, Dictionary<int, Matrix<float>> spriteMatries)
         {
-            await context.SaveAsync();
-            Matrix<float> glbTransform = Transform.GetGlobalMatrix(spriteMatries);
-            await context.TransformAsync(glbTransform[0, 0], glbTransform[1, 0], glbTransform[0, 1], glbTransform[1, 1], glbTransform[0, 2], glbTransform[1, 2]);
-            await OverideDraw(context);
-            
-            await context.RestoreAsync();
+            if (visable)
+            {
+                await context.SaveAsync();
+                Matrix<float> glbTransform = Transform.GetGlobalMatrix(spriteMatries);
+                await context.TransformAsync(glbTransform[0, 0], glbTransform[1, 0], glbTransform[0, 1], glbTransform[1, 1], glbTransform[0, 2], glbTransform[1, 2]);
+                await OverideDraw(context);
+
+                await context.RestoreAsync();
+            }
         }
 
         public LayerDepth GetGlobalLayerDepth()
@@ -154,6 +160,7 @@ namespace GameLib.Sprites
         {
             OverideUpdate(mousePos, mouseState, elapsedTime);
 
+            if (!visable) { return false; }
             bool prevMouseOver = mouseOver;
             mouseOver = false;
             bool blocking = false;

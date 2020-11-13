@@ -19,6 +19,12 @@ namespace GameLib
         [GameSerializableData(layersDataId)]
         public BindingList<float> Layers { get => layers; set { layers = value; OnLayersChanged?.Invoke(this, layersDataId); } }
 
+        public float this[int index]
+        {
+            get => Layers[index];
+            set { Layers[index] = value; }
+        }
+
         static LayerDepth()
         {
             GameSerialize.AddType<LayerDepth>(GameSerialize.GenericSerializeFunc, GameSerialize.GenericDeserializeFunc, true,
