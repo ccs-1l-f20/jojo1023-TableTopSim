@@ -1,4 +1,5 @@
 ﻿using GameLib.GameSerialization;
+using MathNet.Numerics.LinearAlgebra;
 using Microsoft.AspNetCore.Components;
 using MyCanvasLib;
 using System;
@@ -18,6 +19,11 @@ namespace GameLib.Sprites
         public Vector2 Size { get; set; }
         public float Width { get { return Size.X; } set { Size = new Vector2(value, Size.Y); } }
         public float Height { get { return Size.Y; } set { Size = new Vector2(Size.X, value); } }
+
+
+        Vector2 origin;
+        [GameSerializableData(52)]
+        public Vector2 Origin { get => origin; set { origin = value; NotifyPropertyChanged(52); } }
         static ImageSprite()
         {
             GameSerialize.AddType<ImageSprite>(GameSerialize.GenericSerializeFunc, GameSerialize.GenericDeserializeFunc, true, 
@@ -28,13 +34,14 @@ namespace GameLib.Sprites
         {
 
         }
-        public ImageSprite(Vector2 position, ElementReference image, Vector2 size, Vector2 origin,
+        public ImageSprite(SpriteRefrenceManager refManager, Vector2 position, ElementReference image, Vector2 size, Vector2 origin, 
             float rotation = 0, RectangleF? sourceRectangle = null)
-            : base(position, Vector2.One, origin, rotation, ObjectTypes.ImageSprite)
+            : base(position, Vector2.One, rotation, ObjectTypes.ImageSprite, refManager)
         {
             Image = image;
             SourceRectangle = sourceRectangle;
             Size = size;
+            Origin = origin;
         }
         protected override async Task OverideDraw(MyCanvas2DContext context)
         {
@@ -52,9 +59,9 @@ namespace GameLib.Sprites
             }
         }
 
-        protected override bool PointInHitbox(Vector2 point)
+        protected override bool PointInHitbox(Vector2 point, Matrix<float> glbMatrix)
         {
-            return PointInRotatedRect(point, Size);
+            return PointInRotatedRect(glbMatrix, point, Size, Origin);
         }
     }
 }

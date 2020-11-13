@@ -1,9 +1,12 @@
 ﻿
 using GameLib.Sprites;
+using MathNet.Numerics.LinearAlgebra;
 using Microsoft.AspNetCore.Components.Web;
 using MyCanvasLib;
 using Newtonsoft.Json;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Numerics;
 using System.Threading;
 using System.Threading.Tasks;
@@ -20,7 +23,7 @@ namespace GameLib
         public event Action<KeyInfo> OnKeyDown;
         public event Action<TimeSpan> OnUpdate;
         public Color BackColor { get; set; } = new Color(255, 0, 0);
-        public EmptySprite GameSprite { get; private set; }
+        public List<int> Sprites { get; private set; }
         Size size;
         public long Width => size.Width;
         public long Height => size.Height;
@@ -35,7 +38,8 @@ namespace GameLib
         {
             MouseOnSprite = null;
             Keyboard = new KeyboardState();
-            GameSprite = new EmptySprite(Vector2.Zero, Vector2.One, Vector2.Zero, 0);
+            //GameSprite = new EmptySprite(Vector2.Zero, Vector2.One, 0, spriteRefrenceManager);
+            Sprites = new List<int>();
             SpriteRefrenceManager = spriteRefrenceManager;
             this.size = size;
             MouseState = MouseState.Hover;
@@ -43,14 +47,49 @@ namespace GameLib
         }
         public async Task Update(MyCanvas2DContext context, TimeSpan elapsedTime, CancellationToken ct)
         {
-            MouseOnSprite = GameSprite.GameManagerUpdate(MousePos, MouseState, elapsedTime, SpriteRefrenceManager);
+            Dictionary<int, Matrix<float>> spriteMatries = new Dictionary<int, Matrix<float>>();
+            Dictionary<int, LayerDepth> spriteLayerDepths = new Dictionary<int, LayerDepth>();
+            LayerDepth lastLd = null;
+            bool reSort = false;
+            bool mouseBlocked = false;
+            for(int i = 0; i < Sprites.Count; i++)
+            {
+                var ad = Sprites[i];
+                var sprite = SpriteRefrenceManager.GetSprite(ad);
+                if(sprite.Update(MousePos, MouseState, mouseBlocked, elapsedTime, spriteMatries))
+                {
+                    if (!mouseBlocked)
+                    {
+                        MouseOnSprite = sprite;
+                        mouseBlocked = true;
+                    }
+                }
+                LayerDepth currentLd = sprite.GetGlobalLayerDepth();
+                var test = currentLd.Layers.ToArray();
+                spriteLayerDepths.Add(ad, currentLd);
+                if(!reSort && lastLd != null && currentLd < lastLd)
+                {
+                    reSort = true;
+                }
+                lastLd = currentLd;
+            }
+            if (reSort)
+            {
+                Sprites = Sprites.OrderBy(s => spriteLayerDepths[s]).ToList();
+            }
+
             OnUpdate?.Invoke(elapsedTime);
             await context.BeginBatchAsync();
             await context.SetFillStyleAsync(BackColor.ToString());
             await context.FillRectAsync(0, 0, Width, Height);
-            await GameSprite.Draw(context, SpriteRefrenceManager);
+            for(int i = Sprites.Count - 1; i >= 0; i--)
+            {
+                var sprite = SpriteRefrenceManager.GetSprite(Sprites[i]);
+                await sprite.Draw(context, spriteMatries);
+            }
             await context.EndBatchAsync();
         }
+
 
         public void MouseUp()
         {
@@ -80,6 +119,23 @@ namespace GameLib
         {
             var info = Keyboard.KeyDown(args);
             OnKeyDown?.Invoke(info);
+        }
+        public void AddSprite(int id, Sprite sprite)
+        {
+            if (!SpriteRefrenceManager.ContainsAddress(id))
+            {
+                SpriteRefrenceManager.AddSprite(id, sprite);
+            }
+            else
+            {
+                SpriteRefrenceManager.SpriteRefrences[id] = sprite;
+                SpriteRefrenceManager.SpriteAddresses[sprite] = id;
+            }
+            Sprites.Add(id);
+        }
+        public void ClearSprites()
+        {
+            Sprites.Clear();
         }
 
         //int GetNewSpriteAddress()
@@ -130,10 +186,6 @@ namespace GameLib
         //    GameSprite.MoveChildToBack(sprite, SpriteRefrenceManager);
         //}
 
-        public string JsonSerializeSprites()
-        {
-            return JsonConvert.SerializeObject(GameSprite);
-        }
     }
 
     public class Size

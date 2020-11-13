@@ -1,5 +1,6 @@
 ﻿
 using GameLib.GameSerialization;
+using MathNet.Numerics.LinearAlgebra;
 using MyCanvasLib;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -15,375 +16,208 @@ namespace GameLib.Sprites
 {
     public abstract class Sprite
     {
+        const ushort objectTypeDataId = 0;
+        const ushort transformDataId = 1;
+        const ushort layerDepthDataId = 2;
+
+
+        ObjectTypes objectType;
         [GameSerializableData(objectTypeDataId, true)]
         public ObjectTypes ObjectType { get => objectType; }
 
-        internal static Dictionary<ObjectTypes, (Func<Sprite> constructor, Type type)> GetDeafaultSprites = new Dictionary<ObjectTypes, (Func<Sprite> constructor, Type type)>();
+
+        internal static Dictionary<ObjectTypes, (Func<Sprite> constructor, Type type)> GetDeafaultSprites = null;
         //public event Action<Sprite> OnLayerDepthChanged;
         public event Action<Sprite, Vector2, MouseState> OnMouseEnter;
         public event Action<Sprite, Vector2, MouseState> OnMouseLeave;
-        Vector2 positon;
+        
+        [GameSerializableData(transformDataId)]
+        public Transform Transform { get; internal set; }
 
-        [GameSerializableData(1)]
-        public Vector2 Position { get => positon; set { positon = value; NotifyPropertyChanged(1); } }
-        public float X { get { return Position.X; } set { Position = new Vector2(value, Position.Y); } }
-        public float Y { get { return Position.Y; } set { Position = new Vector2(Position.X, value); } }
+        [GameSerializableData(layerDepthDataId)]
+        public LayerDepth LayerDepth { get; internal set; }
 
-        Vector2 scale;
-        [GameSerializableData(2)]
-        public Vector2 Scale { get => scale; set { scale = value; NotifyPropertyChanged(2); } }
+        public int? Parent { get => Transform.Parent; set { Transform.Parent = value; } }
 
-        Vector2 origin;
-        [GameSerializableData(3)]
-        public Vector2 Origin { get => origin; set { origin = value; NotifyPropertyChanged(3); } }
 
-        float rotation;
-        [GameSerializableData(4)]
-        public float Rotation { get => rotation; set { rotation = value; NotifyPropertyChanged(4); } }
-
-        public List<int> Children { get; private set; }
-        Dictionary<int, int> childrenIndexes;
-        Sprite frontChild = null;
-        Sprite backChild = null;
-
-        float layerDepth = 0;
 
         bool mouseOver = false;
-        Sprite parent;
 
 
-        [GameSerializableData(5)]
-        public float LayerDepth
-        {
-            get { return layerDepth; }
-            set { layerDepth = value; /*LayerDepthChanged();*/ NotifyPropertyChanged(5); }
-        }//Negative Layer Depth is Front
-
-        const ushort objectTypeDataId = 0;
-        ObjectTypes objectType;
-
-        public event Action<Sprite, ushort> OnPropertyChanged;
+        public event Action<Sprite, ushort, object, ushort> OnPropertyChanged;
+        SpriteRefrenceManager refManager;
         static Sprite()
         {
-            GetDeafaultSprites.Add(ObjectTypes.RectSprite, (() => new RectSprite(), typeof(RectSprite)));
-            GetDeafaultSprites.Add(ObjectTypes.ImageSprite, (() => new ImageSprite(), typeof(ImageSprite)));
-            GetDeafaultSprites.Add(ObjectTypes.EmptySprite, (() => new EmptySprite(), typeof(EmptySprite)));
-            GameSerialize.AddType<Sprite>(GameSerialize.GenericSerializeFunc, DeserializeSprite, true, DeserializeEditSprite);
-
+            InitSprite();
+        }
+        public static void InitSprite()
+        {
+            if(GetDeafaultSprites== null)
+            {
+                GetDeafaultSprites = new Dictionary<ObjectTypes, (Func<Sprite> constructor, Type type)>();
+                GetDeafaultSprites.Add(ObjectTypes.RectSprite, (() => new RectSprite(), typeof(RectSprite)));
+                GetDeafaultSprites.Add(ObjectTypes.ImageSprite, (() => new ImageSprite(), typeof(ImageSprite)));
+                GetDeafaultSprites.Add(ObjectTypes.EmptySprite, (() => new EmptySprite(), typeof(EmptySprite)));
+                GameSerialize.AddType<Sprite>(GameSerialize.GenericSerializeFunc, DeserializeSprite, true, DeserializeEditSprite);
+            }
         }
         public Sprite(ObjectTypes objectType)
         {
             this.objectType = objectType;
-            Position = Vector2.Zero;
-            Origin = Vector2.Zero;
-            Scale = Vector2.One;
-            Rotation = 0;
-            Children = new List<int>();
-            childrenIndexes = new Dictionary<int, int>();
-            parent = null;
+            Transform = new Transform(this);
+            Transform.OnPropertyChanged += Transform_OnPropertyChanged;
+
+            LayerDepth = new LayerDepth(0);
+            LayerDepth.OnLayersChanged += LayerDepth_OnLayersChanged;
         }
-        public Sprite(Vector2 position, Vector2 scale, Vector2 origin, float rotation, ObjectTypes objectType)
+
+        public Sprite(Vector2 position, Vector2 scale, float rotation, ObjectTypes objectType, SpriteRefrenceManager refManager)
         {
             this.objectType = objectType;
-            Position = position;
-            Origin = origin;
-            Scale = scale;
-            Rotation = rotation;
-            Children = new List<int>();
-            childrenIndexes = new Dictionary<int, int>();
-            parent = null;
+            Transform = new Transform(position, scale, rotation, this);
+            Transform.OnPropertyChanged += Transform_OnPropertyChanged;
+
+            LayerDepth = new LayerDepth(0);
+            LayerDepth.OnLayersChanged += LayerDepth_OnLayersChanged;
+
+            SetRefManager(refManager);
+        }
+        private void LayerDepth_OnLayersChanged(LayerDepth arg1, ushort arg2)
+        {
+            OnPropertyChanged?.Invoke(this, layerDepthDataId, arg1, arg2);
         }
 
-        public void AddChild(Sprite sprite, SpriteRefrenceManager refManager)
+        private void Transform_OnPropertyChanged(Transform arg1, ushort arg2)
         {
-            int spriteAddress = refManager.GetAddress(sprite);
-            AddChild(sprite, spriteAddress);
+            OnPropertyChanged?.Invoke(this, transformDataId, arg1, arg2);
         }
-        public void AddChild(int spriteAddress, SpriteRefrenceManager refManager)
+        public void SetRefManager(SpriteRefrenceManager refManager)
         {
-            Sprite sprite = refManager.GetSprite(spriteAddress);
-            AddChild(sprite, spriteAddress);
-        }
-        void AddChild(Sprite sprite, int spriteAddress)
-        {
-            if (frontChild == null || sprite.layerDepth < frontChild.layerDepth)
-            {
-                frontChild = sprite;
-            }
-            if (backChild == null || sprite.layerDepth > backChild.layerDepth)
-            {
-                backChild = sprite;
-            }
-            childrenIndexes.Add(spriteAddress, Children.Count);
-            Children.Add(spriteAddress);
-            sprite.parent = this;
-        }
-        public bool RemoveChild(Sprite sprite, SpriteRefrenceManager refManager)
-        {
-            int spriteAddress = refManager.GetAddress(sprite);
-            return RemoveChild(sprite, spriteAddress, refManager);
-        }
-        public bool RemoveChild(int spriteAddress, SpriteRefrenceManager refManager)
-        {
-            Sprite sprite = refManager.GetSprite(spriteAddress);
-            return RemoveChild(sprite, spriteAddress, refManager);
-        }
-        public bool RemoveChild(Sprite sprite, int spriteAddress, SpriteRefrenceManager refManager)
-        {
-            if (childrenIndexes.ContainsKey(spriteAddress))
-            {
-                if (frontChild == sprite)
-                {
-                    frontChild = null;
-                }
-                if (backChild == sprite)
-                {
-                    backChild = null;
-                }
-                if (frontChild == null || backChild == null)
-                {
-                    SortChildren(refManager);
-                }
-                Children.RemoveAt(childrenIndexes[spriteAddress]);
-                sprite.parent = null;
-                return true;
-            }
-            return false;
-        }
-        public void ClearChildren(SpriteRefrenceManager refManager)
-        {
-            childrenIndexes.Clear();
-            foreach (var sprite in Children)
-            {
-                if (refManager.ContainsAddress(sprite))
-                {
-                    refManager.GetSprite(sprite).parent = null;
-                }
-                //refManager.SpriteRefrences[sprite].OnLayerDepthChanged -= ChildLayerDepthChanged;
-            }
-            Children.Clear();
+            this.refManager = refManager;
+            Transform.SetRefManager(refManager);
         }
 
-        public void MoveChildToFront(Sprite sprite, SpriteRefrenceManager refManager)
-        {
-            int spriteAddress = refManager.GetAddress(sprite);
-            if (childrenIndexes.ContainsKey(spriteAddress) && frontChild != sprite)
-            {
-                sprite.layerDepth = frontChild.LayerDepth;
-                sprite.LayerDepth = Extensions.MinDecrement(sprite.layerDepth);
-                frontChild = sprite;
-                //ChildLayerDepthChanged(sprite, refManager, true, true);
-            }
-        }
-        public void MoveChildToBack(Sprite sprite, SpriteRefrenceManager refManager)
-        {
-            int spriteAddress = refManager.GetAddress(sprite);
-            if (childrenIndexes.ContainsKey(spriteAddress) && backChild != sprite)
-            {
-                sprite.layerDepth = backChild.LayerDepth;
-                sprite.LayerDepth = Extensions.MinIncrement(sprite.layerDepth);
-                backChild = sprite;
-                //ChildLayerDepthChanged(sprite, refManager, true, false);
-            }
-        }
-        //void LayerDepthChanged()
-        //{
-        //    OnLayerDepthChanged?.Invoke(this);
-        //}
-        //void ChildLayerDepthChanged(Sprite child, SpriteRefrenceManager refManager)
-        //{
-        //    ChildLayerDepthChanged(child, refManager, false, null);
-        //}
-        //void ChildLayerDepthChanged(Sprite child, SpriteRefrenceManager refManager, bool moveWithEqualDepth, bool? upIsChangeDiretion)
-        //{
-        //    int childAddress = refManager.SpriteAddresses[child];
-        //    int currentIndex = childrenIndexes[childAddress];
-
-        //    if (upIsChangeDiretion == null || upIsChangeDiretion.Value)
-        //    {
-        //        for (int i = currentIndex; i > 0; i--)
-        //        {
-        //            if (children[i - 1].LayerDepth > child.LayerDepth || (moveWithEqualDepth && children[i - 1].LayerDepth == child.LayerDepth))
-        //            {
-        //                var temp = children[i - 1];
-        //                children[i - 1] = childAddress;
-        //                children[i] = temp;
-        //                childrenIndexes[temp] = i;
-        //                childrenIndexes[childAddress] = i - 1;
-        //            }
-        //            else
-        //            {
-        //                break;
-        //            }
-        //        }
-        //    }
-
-        //    if (upIsChangeDiretion == null || !upIsChangeDiretion.Value)
-        //    {
-        //        for (int i = currentIndex; i + 1 < children.Count; i++)
-        //        {
-        //            if (children[i + 1].LayerDepth < child.LayerDepth && (moveWithEqualDepth && children[i - 1].LayerDepth == child.LayerDepth))
-        //            {
-        //                var temp = children[i + 1];
-        //                children[i + 1] = child;
-        //                children[i] = temp;
-        //                childrenIndexes[temp] = i;
-        //                childrenIndexes[child] = i + 1;
-        //            }
-        //            else
-        //            {
-        //                break;
-        //            }
-        //        }
-        //    }
-        //}
-
-        public async Task Draw(MyCanvas2DContext context, SpriteRefrenceManager refManager)
+        public async Task Draw(MyCanvas2DContext context, Dictionary<int, Matrix<float>> spriteMatries)
         {
             await context.SaveAsync();
-            await context.TranslateAsync(Position.X, Position.Y);
-            await context.ScaleAsync(Scale.X, Scale.Y);
-            var radians = Extensions.DegreesToRadians(Rotation);
-            await context.RotateAsync(radians);
+            Matrix<float> glbTransform = Transform.GetGlobalMatrix(spriteMatries);
+            await context.TransformAsync(glbTransform[0, 0], glbTransform[1, 0], glbTransform[0, 1], glbTransform[1, 1], glbTransform[0, 2], glbTransform[1, 2]);
             await OverideDraw(context);
-
-            SortChildren(refManager);
-            //Children are drawn backwards so index 0 is in front
-            for (int i = Children.Count - 1; i >= 0; i--)
-            {
-                await refManager.GetSprite(Children[i]).Draw(context, refManager);
-            }
+            
             await context.RestoreAsync();
-            //await context.RotateAsync(-radians);
-            //await context.ScaleAsync(1 / Scale.X, 1 / Scale.Y);
-            //await context.TranslateAsync(-translateVector.X, -translateVector.Y);
         }
-        void SortChildren(SpriteRefrenceManager refManager)
-        {
-            bool reSort = false;
-            float lastLayerDepth = float.MinValue;
-            List<int> childrenIndexesToRemove = new List<int>();
-            for (int i = 0; i < Children.Count; i++)
-            {
-                int child = Children[i];
-                if (!refManager.ContainsAddress(child))
-                {
-                    childrenIndexesToRemove.Add(i);
-                    continue;
-                }
-                Sprite cSprite = refManager.GetSprite(child);
-                if (cSprite.LayerDepth < lastLayerDepth)
-                {
-                    reSort = true;
-                    break;
-                }
-                lastLayerDepth = cSprite.LayerDepth;
-            }
-            foreach (var childIndex in childrenIndexesToRemove)
-            {
-                int child = Children[childIndex];
-                Children.RemoveAt(childIndex);
-                childrenIndexes.Remove(child);
-            }
-            if (reSort)
-            {
-                Children = Children.OrderBy(s => refManager.GetSprite(s).LayerDepth).ToList();
-                for (int i = 0; i < Children.Count; i++)
-                {
-                    childrenIndexes[Children[i]] = i;
-                }
-            }
 
-            if (Children.Count > 0)
-            {
-                frontChild = refManager.GetSprite(Children[0]);
-                backChild = refManager.GetSprite(Children[Children.Count - 1]);
-            }
-            else
-            {
-                frontChild = null;
-                backChild = null;
-            }
+        public LayerDepth GetGlobalLayerDepth()
+        {
+            LayerDepth ld = new LayerDepth();
+            GetGlobalLayerDepthR(ld);
+            return ld;
         }
+        void GetGlobalLayerDepthR(LayerDepth ld)
+        {
+            if (Parent != null)
+            {
+                refManager.GetSprite(Parent.Value).GetGlobalLayerDepthR(ld);
+            }
+            ld.AddTo(LayerDepth);
+        }
+        //public async Task Draw(MyCanvas2DContext context, SpriteRefrenceManager refManager)
+        //{
+        //    await context.SaveAsync();
+        //    await context.TranslateAsync(Position.X, Position.Y);
+        //    await context.ScaleAsync(Scale.X, Scale.Y);
+        //    var radians = Extensions.DegreesToRadians(Rotation);
+        //    await context.RotateAsync(radians);
+        //    await OverideDraw(context);
+
+        //    SortChildren(refManager);
+        //    //Children are drawn backwards so index 0 is in front
+        //    for (int i = Children.Count - 1; i >= 0; i--)
+        //    {
+        //        await refManager.GetSprite(Children[i]).Draw(context, refManager);
+        //    }
+        //    await context.RestoreAsync();
+        //    //await context.RotateAsync(-radians);
+        //    //await context.ScaleAsync(1 / Scale.X, 1 / Scale.Y);
+        //    //await context.TranslateAsync(-translateVector.X, -translateVector.Y);
+        //}
+        
         protected abstract Task OverideDraw(MyCanvas2DContext context);
 
         /// <summary>
-        /// Shoul Only Be Called By Game Manager and Only Once
+        /// Shoul Only Be Called By Game Manager
         /// </summary>
         /// <param name="mousePos"></param>
         /// <param name="mouseState"></param>
         /// <returns>If the mouse is blocked</returns>
-        public Sprite GameManagerUpdate(Vector2 mousePos, MouseState mouseState, TimeSpan elapsedTime, SpriteRefrenceManager refManager)
+        public bool Update(Vector2 mousePos, MouseState mouseState, bool mouseBlocked, TimeSpan elapsedTime, Dictionary<int, Matrix<float>> spriteMatries)
         {
-            Sprite mouseOnSprite;
-            mouseOnSprite = MouseInHitboxOrChildren(mousePos, mouseState, false, refManager).mouseOnSprite;
-
             OverideUpdate(mousePos, mouseState, elapsedTime);
 
-            foreach (var child in Children)
+            bool prevMouseOver = mouseOver;
+            mouseOver = false;
+            bool blocking = false;
+            Matrix<float> glbMatrix = Transform.GetGlobalMatrix(spriteMatries);
+            if (!mouseBlocked)
             {
-                refManager.GetSprite(child).OverideUpdate(mousePos, mouseState, elapsedTime);
+                if (PointInHitbox(mousePos, glbMatrix))
+                {
+                    mouseOver = true;
+                    blocking = true;
+                    if (!prevMouseOver)
+                    {
+                        OnMouseEnter?.Invoke(this, mousePos, mouseState);
+                    }
+                }
+                else if (prevMouseOver)
+                {
+                    OnMouseLeave?.Invoke(this, mousePos, mouseState);
+                }
             }
-            return mouseOnSprite;
+            return blocking;
         }
         protected virtual void OverideUpdate(Vector2 mousePos, MouseState mouseState, TimeSpan elapsedTime) { }
 
-        (bool mouseOver, Sprite mouseOnSprite) MouseInHitboxOrChildren(Vector2 point, MouseState mouseState, bool mouseBlocked, SpriteRefrenceManager refManager)
-        {
-            bool prevMouseOver = mouseOver;
-            Sprite mouseOnSprite = null;
-            mouseOver = false;
-            foreach (var child in Children)
-            {
-                var childInfo = refManager.GetSprite(child).MouseInHitboxOrChildren(point, mouseState, mouseBlocked, refManager);
-                if (childInfo.mouseOver)
-                {
-                    if (childInfo.mouseOnSprite != null)
-                    {
-                        mouseOnSprite = childInfo.mouseOnSprite;
-                    }
-                    mouseBlocked = true;
-                }
-            }
-            if (!mouseBlocked && PointInHitbox(point))
-            {
-                mouseOnSprite = this;
-                mouseOver = true;
-                if (!prevMouseOver)
-                {
-                    OnMouseEnter?.Invoke(this, point, mouseState);
-                }
-                mouseBlocked = true;
-            }
-            if (prevMouseOver && !mouseOver)
-            {
-                OnMouseLeave?.Invoke(this, point, mouseState);
-            }
-            return (mouseBlocked, mouseOnSprite);
-        }
-        protected abstract bool PointInHitbox(Vector2 point);
+        //(bool mouseOver, Sprite mouseOnSprite) MouseInHitboxOrChildren(Vector2 point, MouseState mouseState, bool mouseBlocked, SpriteRefrenceManager refManager)
+        //{
+        //    bool prevMouseOver = mouseOver;
+        //    Sprite mouseOnSprite = null;
+        //    mouseOver = false;
+        //    foreach (var child in Children)
+        //    {
+        //        var childInfo = refManager.GetSprite(child).MouseInHitboxOrChildren(point, mouseState, mouseBlocked, refManager);
+        //        if (childInfo.mouseOver)
+        //        {
+        //            if (childInfo.mouseOnSprite != null)
+        //            {
+        //                mouseOnSprite = childInfo.mouseOnSprite;
+        //            }
+        //            mouseBlocked = true;
+        //        }
+        //    }
+        //    if (!mouseBlocked && PointInHitbox(point))
+        //    {
+        //        mouseOnSprite = this;
+        //        mouseOver = true;
+        //        if (!prevMouseOver)
+        //        {
+        //            OnMouseEnter?.Invoke(this, point, mouseState);
+        //        }
+        //        mouseBlocked = true;
+        //    }
+        //    if (prevMouseOver && !mouseOver)
+        //    {
+        //        OnMouseLeave?.Invoke(this, point, mouseState);
+        //    }
+        //    return (mouseBlocked, mouseOnSprite);
+        //}
+        protected abstract bool PointInHitbox(Vector2 point, Matrix<float> glbMatrix);
         //protected abstract bool MouseEvent(Vector2 mousePos, MouseState mouseState, bool mouseBlocking);
 
-        Vector2 RotatePoint(Vector2 point)
+        protected static bool PointInRotatedRect(Matrix<float> glbMatrix, Vector2 point, Vector2 size, Vector2 origin)
         {
-            if (parent != null) { point = parent.RotatePoint(point); }
-            Vector2 rotPoint = point - Position;
-            double currentRotation = Math.Atan2(rotPoint.Y, rotPoint.X);
-            double distance = rotPoint.Length();
-            double rotRadians = Extensions.DegreesToRadians(Rotation);
-            rotPoint.X = (float)(Math.Cos(currentRotation - rotRadians) * distance) / Scale.X;
-            rotPoint.Y = (float)(Math.Sin(currentRotation - rotRadians) * distance) / Scale.Y;
-
-            return rotPoint;
-        }
-        protected bool PointInRotatedRect(Vector2 point, Vector2 size)
-        {
-            Vector2 rotPoint = RotatePoint(point);
-            float left = -Origin.X;
-            float right = (size.X - Origin.X);
-            float top = -Origin.Y;
-            float bottom = (size.Y - Origin.Y);
-            return rotPoint.X >= left && rotPoint.X < right && rotPoint.Y >= top && rotPoint.Y < bottom;
+            point = Transform.TransformPoint(glbMatrix, point);
+            return point.X >= -origin.X && point.Y >= -origin.Y && point.X < size.X - origin.X && point.Y < size.Y - origin.Y;
         }
         static Sprite DeserializeSprite(TypeSerializableInfo<Sprite> info, ArrayWithOffset<byte> bytes)
         {
@@ -408,7 +242,7 @@ namespace GameLib.Sprites
         }
         protected void NotifyPropertyChanged(ushort propertyDataId)
         {
-            OnPropertyChanged?.Invoke(this, propertyDataId);
+            OnPropertyChanged?.Invoke(this, propertyDataId, null, 0);
         }
 
     }
@@ -421,16 +255,16 @@ namespace GameLib.Sprites
         }
         public EmptySprite()
             : base(ObjectTypes.EmptySprite) { }
-        public EmptySprite(Vector2 position, Vector2 scale, Vector2 origin, float rotation = 0)
-            : base(position, scale, origin, rotation, ObjectTypes.EmptySprite)
+        public EmptySprite(SpriteRefrenceManager refrenceManager, Vector2 position, Vector2 scale, float rotation = 0)
+            : base(position, scale, rotation, ObjectTypes.EmptySprite, refrenceManager)
         {
 
         }
 
 
-        protected override async Task OverideDraw(MyCanvas2DContext context) { }
+        protected override Task OverideDraw(MyCanvas2DContext context) { return Task.CompletedTask; }
 
-        protected override bool PointInHitbox(Vector2 point)
+        protected override bool PointInHitbox(Vector2 point, Matrix<float> glbMatrix)
         {
             return false;
         }

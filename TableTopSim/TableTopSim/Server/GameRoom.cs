@@ -21,17 +21,16 @@ namespace TableTopSim.Server
         public int RoomId { get; }
         public Dictionary<int, WebSocket> PlayerWebSockets { get; private set; }
         public bool GameStarted { get; set; }
-        public GameManager GameManager { get; set; }
+        //public GameManager GameManager { get; set; }
         CancellationTokenSource cts = new CancellationTokenSource();
-        SpriteRefrenceManager refManager => GameManager.SpriteRefrenceManager;
+        SpriteRefrenceManager refManager;
         object gameLockObject = new object();
 
         Random random = new Random();
-        EmptySprite spriteContainer = new EmptySprite();
-        EmptySprite selectedSpritesContainer = new EmptySprite() { LayerDepth = -100 };
         public GameRoom(int roomId, int? initPlayerId, WebSocket initPlayerWs)
         {
-            GameManager = new GameManager(new Size(1000, 1000), new SpriteRefrenceManager(new Dictionary<int, Sprite>() { { 0, spriteContainer }, { 1, selectedSpritesContainer } }));
+            refManager = new SpriteRefrenceManager();
+            //GameManager = new GameManager(new Size(1000, 1000), new SpriteRefrenceManager());
             GameStarted = false;
             RoomId = roomId;
             PlayerWebSockets = new Dictionary<int, WebSocket>();
@@ -43,10 +42,10 @@ namespace TableTopSim.Server
         }
         void TempInit()
         {
-            AddSprite(new RectSprite(new Vector2(200, 200), new Vector2(100, 200), new Color(0, 0, 255), new Vector2(50, 100), 0));
-            AddSprite(new RectSprite(new Vector2(200, 200), new Vector2(10, 10), new Color(255, 0, 255), new Vector2(0, 0), 45));
-            AddSprite(new RectSprite(new Vector2(500, 500), new Vector2(50, 50), new Color(0, 0, 0), new Vector2(0, 0), 0));
-            AddSprite(new RectSprite(new Vector2(600, 500), new Vector2(50, 50), new Color(128, 128, 128), new Vector2(0, 0), 0));
+            AddSprite(new RectSprite(refManager, new Vector2(200, 200), new Vector2(100, 200), new Color(0, 0, 255), new Vector2(50, 100), 0));
+            AddSprite(new RectSprite(refManager, new Vector2(200, 200), new Vector2(10, 10), new Color(255, 0, 255), new Vector2(0, 0), 45));
+            AddSprite(new RectSprite(refManager, new Vector2(500, 500), new Vector2(50, 50), new Color(0, 0, 0), new Vector2(0, 0), 0));
+            AddSprite(new RectSprite(refManager, new Vector2(600, 500), new Vector2(50, 50), new Color(128, 128, 128), new Vector2(0, 0), 0));
         }
         int GetNewSpriteAddress()
         {
@@ -60,7 +59,7 @@ namespace TableTopSim.Server
         void AddSprite(Sprite sprite)
         {
             refManager.AddSprite(GetNewSpriteAddress(), sprite);
-            spriteContainer.AddChild(sprite, refManager);
+            //GameManager.AddSprite(GetNewSpriteAddress(), sprite);
         }
 
         public async Task StartGame()
@@ -85,9 +84,6 @@ namespace TableTopSim.Server
                     var spritesBytes = GameSerialize.SerializeGameData(refManager.SpriteRefrences);
                     sendBytes.AddRange(BitConverter.GetBytes(spritesBytes.Count));
                     sendBytes.AddRange(spritesBytes);
-                    var baseSpritesBytes = GameSerialize.SerializeGameData(new List<List<int>>() { spriteContainer.Children, selectedSpritesContainer.Children });
-                    sendBytes.AddRange(BitConverter.GetBytes(baseSpritesBytes.Count));
-                    sendBytes.AddRange(baseSpritesBytes);
                 }
 
                 await SendToRoom(sendBytes);
@@ -102,29 +98,11 @@ namespace TableTopSim.Server
             bytes.Offset += 4;
             ArrayWithOffset<byte> serializedSpritesDict = bytes.Slice(0, spritesDictLength);
             bytes.Offset += spritesDictLength;
-            int gameSpritesLength = BitConverter.ToInt32(bytes.Array, bytes.Offset);
-            bytes.Offset += 4;
-            ArrayWithOffset<byte> serializedGameSprites = bytes.Slice(0, gameSpritesLength);
 
             lock (gameLockObject)
             {
                 refManager.SpriteRefrences = GameSerialize.DeserializeEditGameData(refManager.SpriteRefrences, serializedSpritesDict);
                 refManager.UpdateSpriteAddresses();
-
-
-                List<List<int>> gameSpriteSprites = GameSerialize.DeserializeGameData<List<List<int>>>(serializedGameSprites);
-                List<int> spriteContainerSprites = gameSpriteSprites[0];
-                List<int> selectedSpriteSprites = gameSpriteSprites[1];
-                spriteContainer.ClearChildren(refManager);
-                selectedSpritesContainer.ClearChildren(refManager);
-                foreach (var s in spriteContainerSprites)
-                {
-                    spriteContainer.AddChild(s, refManager);
-                }
-                foreach (var s in selectedSpriteSprites)
-                {
-                    selectedSpritesContainer.AddChild(s, refManager);
-                }
             }
 
             List<byte> sendBackMessage = new List<byte>() { (byte)MessageType.ChangeGameState };

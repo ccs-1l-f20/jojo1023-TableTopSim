@@ -15,11 +15,9 @@ namespace TableTopSim.Client.SpecificGame
     public class GameDataUpdate
     {
         public ArrayWithOffset<byte> Data { get; set; }
-        public ArrayWithOffset<byte> GameSpritesData { get; set; }
-        public GameDataUpdate(ArrayWithOffset<byte> data, ArrayWithOffset<byte> gameSpritesData)
+        public GameDataUpdate(ArrayWithOffset<byte> data)
         {
             Data = data;
-            GameSpritesData = gameSpritesData;
         }
     }
     public class GameProgram
@@ -28,26 +26,19 @@ namespace TableTopSim.Client.SpecificGame
         TimeSpan totalTime = new TimeSpan(0);
         int? selectedSpriteKey = null;
         Vector2 selectionOffset;
-        object selectedLockObject = new object();
         //ElementReference cardBack, king, queen;
         MyClientWebSocket ws;
         SpriteRefrenceManager refManager => Manager.SpriteRefrenceManager;
-        EmptySprite gameSprite => Manager.GameSprite;
-        EmptySprite spriteContainer = new EmptySprite();
-        EmptySprite selectedSpritesContainer = new EmptySprite() { LayerDepth = -100 };
 
         int roomId;
         GameDataUpdate completeUpdateData = null;
         object gameStateLockObject = new object();
         Queue<GameDataUpdate> partialDataUpdates = new Queue<GameDataUpdate>();
         public GameManager Manager { get; set; }
-
         internal GameProgram(Size size, MyClientWebSocket ws, int roomId)
         //ElementReference cardBack, ElementReference king, ElementReference queen)
         {
-            Manager = new GameManager(size, new SpriteRefrenceManager(new Dictionary<int, Sprite>() { { 0, spriteContainer }, { 1, selectedSpritesContainer } }));
-            gameSprite.AddChild(spriteContainer, refManager);
-            gameSprite.AddChild(selectedSpritesContainer, refManager);
+            Manager = new GameManager(size, new SpriteRefrenceManager());
 
             this.ws = ws;
             this.roomId = roomId;
@@ -66,6 +57,7 @@ namespace TableTopSim.Client.SpecificGame
 
 
             ws.OnRecieved += OnRecivedWSMessage;
+
         }
         public void Dispose()
         {
@@ -89,14 +81,14 @@ namespace TableTopSim.Client.SpecificGame
                 message.Offset += 4;
                 ArrayWithOffset<byte> serializedData = message.Slice(0, dataLength);
                 message.Offset += dataLength;
-                int spritesSpritesLength = BitConverter.ToInt32(message.Array, message.Offset);
-                message.Offset += 4;
-                ArrayWithOffset<byte> serializeGameSprites = message.Slice(0, spritesSpritesLength);
+                //int spritesSpritesLength = BitConverter.ToInt32(message.Array, message.Offset);
+                //message.Offset += 4;
+                //ArrayWithOffset<byte> serializeGameSprites = message.Slice(0, spritesSpritesLength);
                 if (mt == MessageType.GameState)
                 {
                     lock (gameStateLockObject)
                     {
-                        completeUpdateData = new GameDataUpdate(serializedData, serializeGameSprites);
+                        completeUpdateData = new GameDataUpdate(serializedData);
                         partialDataUpdates.Clear();
                     }
                 }
@@ -104,7 +96,7 @@ namespace TableTopSim.Client.SpecificGame
                 {
                     lock (gameStateLockObject)
                     {
-                        partialDataUpdates.Enqueue(new GameDataUpdate(serializedData, serializeGameSprites));
+                        partialDataUpdates.Enqueue(new GameDataUpdate(serializedData));
                     }
                 }
             }
@@ -122,13 +114,7 @@ namespace TableTopSim.Client.SpecificGame
                 List<byte> specificSerializedData = GameSerialize.SerializeGameData(refManager.SpriteRefrences, changedProperties);
                 sendBytes.AddRange(BitConverter.GetBytes(specificSerializedData.Count));
                 sendBytes.AddRange(specificSerializedData);
-                List<byte> serializedGameSprites;
-                lock (selectedLockObject)
-                {
-                    serializedGameSprites = GameSerialize.SerializeGameData(new List<List<int>>() { spriteContainer.Children, selectedSpritesContainer.Children });
-                }
-                sendBytes.AddRange(BitConverter.GetBytes(serializedGameSprites.Count));
-                sendBytes.AddRange(serializedGameSprites);
+
 
                 _ = ws.SendMessageAsync(new ArraySegment<byte>(sendBytes.ToArray()));
             }
@@ -138,7 +124,7 @@ namespace TableTopSim.Client.SpecificGame
         bool ignorePropertyChanged = false;
         Dictionary<object, HashSet<int>> changedProperties = new Dictionary<object, HashSet<int>>();
 
-        void OnPropertyChanged(Sprite sprite, ushort propertyId)
+        void OnPropertyChanged(Sprite sprite, ushort objId, object obj, ushort objPropertyId)
         {
             if (!ignorePropertyChanged)
             {
@@ -156,10 +142,24 @@ namespace TableTopSim.Client.SpecificGame
                 {
                     changedProperties.Add(sprite, new HashSet<int>());
                 }
-                var spriteHash = changedProperties[sprite];
-                if (!spriteHash.Contains(propertyId))
+
+                var spriteHashSet = changedProperties[sprite];
+                if (!spriteHashSet.Contains(objId))
                 {
-                    spriteHash.Add(propertyId);
+                    spriteHashSet.Add(objId);
+                }
+                if(obj != null)
+                {
+                    if (!changedProperties.ContainsKey(obj))
+                    {
+                        changedProperties.Add(obj, new HashSet<int>());
+                    }
+
+                    var objHashSet = changedProperties[obj];
+                    if (!objHashSet.Contains(objPropertyId))
+                    {
+                        objHashSet.Add(objPropertyId);
+                    }
                 }
             }
         }
@@ -193,32 +193,32 @@ namespace TableTopSim.Client.SpecificGame
 
         private void MouseDown()
         {
-            lock (selectedLockObject)
-            {
-                if (selectedSpriteKey != null)
-                {
-                    Sprite selectedSprite = refManager.GetSprite(selectedSpriteKey.Value);
-                    selectedSprite.Scale /= 1.15f;
+            //lock (selectedLockObject)
+            //{
+            //    if (selectedSpriteKey != null)
+            //    {
+            //        Sprite selectedSprite = refManager.GetSprite(selectedSpriteKey.Value);
+            //        selectedSprite.Scale /= 1.15f;
 
-                    selectedSpritesContainer.RemoveChild(selectedSpriteKey.Value, refManager);
-                    spriteContainer.AddChild(selectedSpriteKey.Value, refManager);
-                    spriteContainer.MoveChildToFront(selectedSprite, refManager);
-                    selectedSpriteKey = null;
-                }
-                else if (Manager.MouseOnSprite != null)
-                {
-                    Sprite s = Manager.MouseOnSprite;
-                    selectedSpriteKey = refManager.GetAddress(s);
-                    selectionOffset = MousePos - s.Position;
+            //        selectedSpritesContainer.RemoveChild(selectedSpriteKey.Value, refManager);
+            //        spriteContainer.AddChild(selectedSpriteKey.Value, refManager);
+            //        spriteContainer.MoveChildToFront(selectedSprite, refManager);
+            //        selectedSpriteKey = null;
+            //    }
+            //    else if (Manager.MouseOnSprite != null)
+            //    {
+            //        Sprite s = Manager.MouseOnSprite;
+            //        selectedSpriteKey = refManager.GetAddress(s);
+            //        selectionOffset = MousePos - s.Position;
 
-                    spriteContainer.RemoveChild(selectedSpriteKey.Value, refManager);
-                    selectedSpritesContainer.AddChild(selectedSpriteKey.Value, refManager);
-                    selectedSpritesContainer.MoveChildToFront(s, refManager);
-                    s.Scale *= 1.15f;
-                    //Manager.MoveChildToFront(s);
-                    //s.Scale *= 1.1f;
-                }
-            }
+            //        spriteContainer.RemoveChild(selectedSpriteKey.Value, refManager);
+            //        selectedSpritesContainer.AddChild(selectedSpriteKey.Value, refManager);
+            //        selectedSpritesContainer.MoveChildToFront(s, refManager);
+            //        s.Scale *= 1.15f;
+            //        //Manager.MoveChildToFront(s);
+            //        //s.Scale *= 1.1f;
+            //    }
+            //}
         }
         private void MouseUp()
         {
@@ -267,46 +267,51 @@ namespace TableTopSim.Client.SpecificGame
 
             if (lastUpdate != null)
             {
-                List<List<int>> gameSpriteSprites = GameSerialize.DeserializeGameData<List<List<int>>>(lastUpdate.GameSpritesData);
-                List<int> spriteContainerSprites = gameSpriteSprites[0];
-                List<int> selectedSpriteSprites = gameSpriteSprites[1];
-                lock (selectedLockObject)
+                Manager.ClearSprites();
+                foreach (var s in refManager.SpriteRefrences.Keys)
                 {
-                    spriteContainer.ClearChildren(refManager);
-                    selectedSpritesContainer.ClearChildren(refManager);
-                    foreach (var s in spriteContainerSprites)
-                    {
-                        spriteContainer.AddChild(s, refManager);
-                    }
-                    foreach (var s in selectedSpriteSprites)
-                    {
-                        selectedSpritesContainer.AddChild(s, refManager);
-                    }
+                    Sprite sprite = refManager.GetSprite(s);
+                    Manager.Sprites.Add(s);
+                    sprite.SetRefManager(refManager);
+                    sprite.OnPropertyChanged -= OnPropertyChanged;
+                    sprite.OnPropertyChanged += OnPropertyChanged;
                 }
+                //List<List<int>> gameSpriteSprites = GameSerialize.DeserializeGameData<List<List<int>>>(lastUpdate.GameSpritesData);
+                //List<int> spriteContainerSprites = gameSpriteSprites[0];
+                //List<int> selectedSpriteSprites = gameSpriteSprites[1];
+                //lock (selectedLockObject)
+                //{
+                //    spriteContainer.ClearChildren(refManager);
+                //    selectedSpritesContainer.ClearChildren(refManager);
+                //    foreach (var s in spriteContainerSprites)
+                //    {
+                //        spriteContainer.AddChild(s, refManager);
+                //    }
+                //    foreach (var s in selectedSpriteSprites)
+                //    {
+                //        selectedSpritesContainer.AddChild(s, refManager);
+                //    }
+                //}
             }
 
-            foreach (var s in refManager.SpriteRefrences.Values)
-            {
-                s.OnPropertyChanged -= OnPropertyChanged;
-                s.OnPropertyChanged += OnPropertyChanged;
-            }
+            
             ignorePropertyChanged = false;
 
-            lock (selectedLockObject)
-            {
-                if (selectedSpriteKey != null)
-                {
-                    if (refManager.ContainsAddress(selectedSpriteKey.Value))
-                    {
-                        Sprite selectedSprite = refManager.GetSprite(selectedSpriteKey.Value);
-                        selectedSprite.Position = Manager.MousePos - selectionOffset;
-                    }
-                    else
-                    {
-                        selectedSpriteKey = null;
-                    }
-                }
-            }
+            //lock (selectedLockObject)
+            //{
+            //    if (selectedSpriteKey != null)
+            //    {
+            //        if (refManager.ContainsAddress(selectedSpriteKey.Value))
+            //        {
+            //            Sprite selectedSprite = refManager.GetSprite(selectedSpriteKey.Value);
+            //            selectedSprite.Position = Manager.MousePos - selectionOffset;
+            //        }
+            //        else
+            //        {
+            //            selectedSpriteKey = null;
+            //        }
+            //    }
+            //}
 
 
 

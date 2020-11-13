@@ -3,11 +3,13 @@
 @inject HttpClient Http
 @inject GlobalData GlobalData
 @using TableTopSim.Client.GameLibComponents
-@using TableTopSim.Client.SpecificGame
 @using GameLib
 @using TableTopSim.Shared
 @using DataLayer
 @using System.Threading;
+@using GameLib.Sprites
+@using System.Numerics
+@using TableTopSim.Client.SpecificGame
 @inject Uri WebSocketUri
 
 <img src="/images/cardBack.png" asp-append-version="true" @ref="CardBack" style="display:none" />
@@ -28,9 +30,12 @@
     ElementReference Queen;
     Game gameComponent;
     GameProgram gameProgram;
+    //GameManager gameManager;
     Player thisPlayer;
     GameLib.Size size = new GameLib.Size(1000, 1000);
     CancellationTokenSource cts = new CancellationTokenSource();
+
+    RectSprite rectSprite, rectSprite2, rectSprite3, rectSprite4;
     protected override async Task OnInitializedAsync()
     {
         NavigationManager.LocationChanged += OnLocationChanged;
@@ -64,14 +69,51 @@
             return;
         }
 
+        //var refManager = new SpriteRefrenceManager();
+        //gameManager = new GameManager(size, refManager);
+
+        //rectSprite = new RectSprite(refManager, new Vector2(400, 400), new Vector2(200, 200), new GameLib.Color(255, 255, 0), new Vector2(100, 100), 15);
+        //gameManager.AddSprite(100, rectSprite);
+
+        //rectSprite2 = new RectSprite(refManager, new Vector2(-100, 0), new Vector2(40, 40), new GameLib.Color(0, 100, 255), new Vector2(20, 20), 0);
+        //rectSprite2.LayerDepth.Layers[0] = 0;
+        //rectSprite2.Transform.Parent = 100;
+        //gameManager.AddSprite(101, rectSprite2);
+
+        //rectSprite4 = new RectSprite(refManager, new Vector2(200, 200), new Vector2(80, 80), new GameLib.Color(255, 0, 60), new Vector2(40, 40), 0);
+        //rectSprite4.Transform.Parent = 100;
+        //gameManager.AddSprite(103, rectSprite4);
+
+        //rectSprite3 = new RectSprite(refManager, new Vector2(-40, -40), new Vector2(10, 10), new GameLib.Color(128, 128, 128), new Vector2(5, 5), 0);
+        //rectSprite3.LayerDepth.Layers[0] = -1;
+        //rectSprite3.Transform.Parent = 101;
+        //gameManager.AddSprite(102, rectSprite3);
+
+        //gameManager.OnUpdate += TestUpdate;
 
         gameProgram = new GameProgram(size, GlobalData.WebSocket, RoomId);
     }
     void OnLocationChanged(object sender, LocationChangedEventArgs args)
     {
         NavigationManager.LocationChanged -= OnLocationChanged;
-        gameProgram.Dispose();
+        //gameProgram.Dispose();
         cts.Cancel();
     }
 
+
+    void TestUpdate(TimeSpan ts)
+    {
+        rectSprite.Transform.Rotation += 0.5f;
+        //if (rectSprite.Transform.Scale.Y > 1)
+        //{
+        //    rectSprite.Transform.Scale -= new Vector2(0, 0.005f);
+        //}
+        //if (rectSprite.Transform.Scale.X > 1)
+        //{
+        //    rectSprite.Transform.Scale -= new Vector2(0.001f, 0);
+        //}
+        rectSprite2.Transform.Rotation -= 1f;
+        rectSprite3.Transform.Rotation += 1f;
+        rectSprite4.Transform.Rotation -= 0.05f;
+    }
 }

@@ -1,4 +1,5 @@
 ﻿using Blazor.Extensions.Canvas.WebGL;
+using GameLib.Sprites;
 using Newtonsoft.Json;
 using System;
 using System.Collections;
@@ -21,6 +22,13 @@ namespace GameLib.GameSerialization
         {
             AddType<int>((o, info, s, bytes) => bytes.AddRange(BitConverter.GetBytes(o)),
                 (info, bytes) => { bytes.Offset += 4; return BitConverter.ToInt32(bytes.Array, bytes.Offset - 4); }, false);
+            AddType<int?>((o, info, s, bytes) => { bytes.Add((byte)(o == null ? 0 : 255)); bytes.AddRange(BitConverter.GetBytes(o == null ? 0 : o.Value)); },
+                (info, bytes) =>
+                {
+                    bytes.Offset += 5; int? retVal = null;
+                    if (bytes[-5] != 0) { retVal = BitConverter.ToInt32(bytes.Array, bytes.Offset - 4); }
+                    return retVal;
+                }, false);
 
             AddType<float>((o, info, s, bytes) => bytes.AddRange(BitConverter.GetBytes(o)),
                 (info, bytes) => { bytes.Offset += 4; return BitConverter.ToSingle(bytes.Array, bytes.Offset - 4); }, false);
@@ -45,6 +53,7 @@ namespace GameLib.GameSerialization
                     bytes.Offset += 4;
                     return new Vector2(x, y);
                 }, false);
+            Sprite.InitSprite();
         }
 
         public static void AddType<T>(Action<T, TypeSerializableInfo<T>, Dictionary<object, HashSet<int>>, List<byte>> serializeFunc,
@@ -71,7 +80,8 @@ namespace GameLib.GameSerialization
                         if (!att.GetOnly)
                         {
                             var setParam = Expression.Parameter(typeof(object));
-                            var setExpres = Expression.Assign(pExpres, Expression.Convert(setParam, pExpres.Type));
+                            var convertedSet = Expression.Convert(setParam, pExpres.Type);
+                            var setExpres = Expression.Assign(pExpres, convertedSet);
                             setFunc = Expression.Lambda<Action<T, object>>(setExpres, typeInstance, setParam).Compile();
                         }
                         Func<T, object> getFunc = Expression.Lambda<Func<T, object>>(Expression.Convert(pExpres, typeof(object)), typeInstance).Compile();
@@ -100,7 +110,7 @@ namespace GameLib.GameSerialization
                     bytes.Add(0);
                     bytes.Add(0);
 
-                    SerializeGameData(l[i], dataToSerialize, bytes);
+                    SerializeGameData(l[i], null, dataToSerialize, bytes);
 
                     ushort pLength = (ushort)(bytes.Count - pStartIndex - 2);
                     byte[] pLengthBytes = BitConverter.GetBytes(pLength);
@@ -135,11 +145,12 @@ namespace GameLib.GameSerialization
                 if (dataIdsToSerialize == null || dataIdsToSerialize.Contains(key.GetHashCode()))
                 {
                     //bytes.AddRange(BitConverter.GetBytes(i));
-                    SerializeGameData(key, null, bytes);
+                    SerializeGameData(key, null, null, bytes);
                     int pStartIndex = bytes.Count;
                     bytes.AddRange(new byte[] { 0, 0, 0, 0 });
 
-                    SerializeGameData(dict[key], dataToSerialize, bytes);
+                    var currentVal = dict[key];
+                    SerializeGameData(currentVal, currentVal.GetType(), dataToSerialize, bytes);
 
                     int pLength = bytes.Count - pStartIndex - 4;
                     byte[] pLengthBytes = BitConverter.GetBytes(pLength);
@@ -153,7 +164,7 @@ namespace GameLib.GameSerialization
             {
                 foreach (var key in keysToRemove)
                 {
-                    SerializeGameData(key, null, bytes);
+                    SerializeGameData(key, null, null, bytes);
                     bytes.AddRange(BitConverter.GetBytes((int)-1));
                 }
             }
@@ -190,12 +201,17 @@ namespace GameLib.GameSerialization
             int startOffset = bytes.Offset;
             Type genericType = t.GenericTypeArguments[0];
             object genericTypeDefault = null;
-            if (!genericType.IsClass)
+            if (!genericType.IsValueType)
             {
-                genericTypeDefault = genericType.GetConstructor(new Type[0]).Invoke(new object[0]);
+                //string tTyest = t.Name;
+                //string test = genericType.FullName;
+                //var cnstr = genericType.TypeInitializer;
+                //genericTypeDefault = genericType.TypeInitializer.Invoke(new object[0]);
+                genericTypeDefault = Activator.CreateInstance(genericType);
+                
             }
             HashSet<int> thisDataToIgnore = null;
-            if(dataToIgnore != null && dataToIgnore.ContainsKey(list))
+            if (dataToIgnore != null && dataToIgnore.ContainsKey(list))
             {
                 thisDataToIgnore = dataToIgnore[list];
             }
@@ -261,7 +277,7 @@ namespace GameLib.GameSerialization
 
                 if (pLength < 0)
                 {
-                    if (dict.Contains(key) && (thisDataToIgnore == null || 
+                    if (dict.Contains(key) && (thisDataToIgnore == null ||
                         !thisDataToIgnore.Contains(keyHash)))
                     {
                         dict.Remove(key);
@@ -300,12 +316,15 @@ namespace GameLib.GameSerialization
         public static List<byte> SerializeGameData(object data, Dictionary<object, HashSet<int>> specificDataToSerialize = null)
         {
             List<byte> bytes = new List<byte>();
-            SerializeGameData(data, specificDataToSerialize, bytes);
+            SerializeGameData(data, data.GetType(), specificDataToSerialize, bytes);
             return bytes;
         }
-        static void SerializeGameData(object data, Dictionary<object, HashSet<int>> dataToSerialize, List<byte> bytes)
+        static void SerializeGameData(object data, Type t, Dictionary<object, HashSet<int>> dataToSerialize, List<byte> bytes)
         {
-            Type t = data.GetType();
+            if(data != null)
+            {
+                t = data.GetType();
+            }
             TypeSerializableInfo info = null;
             if (t.IsEnum)
             {
@@ -357,6 +376,7 @@ namespace GameLib.GameSerialization
                 return DeserializeDict(t, bytes);
             }
 
+            string typeName = t.Name;
             if (typeProperties.ContainsKey(t))
             {
                 info = typeProperties[t];
@@ -367,14 +387,14 @@ namespace GameLib.GameSerialization
             }
             else
             {
-                throw new NullReferenceException();
+                throw new NullReferenceException($"Cant Find Serialize For Type: {typeName}");
             }
         }
         public static T DeserializeEditGameData<T>(T data, byte[] bytes, Dictionary<object, HashSet<int>> dataToIgnore = null)
         {
             return (T)PvtDeserializeEditGameData(data, new ArrayWithOffset<byte>(bytes), dataToIgnore);
         }
-        public static T DeserializeEditGameData<T>(T data, ArrayWithOffset<byte> bytes, Dictionary<object, HashSet<int>> dataToIgnore =null)
+        public static T DeserializeEditGameData<T>(T data, ArrayWithOffset<byte> bytes, Dictionary<object, HashSet<int>> dataToIgnore = null)
         {
             return (T)PvtDeserializeEditGameData(data, bytes, dataToIgnore);
         }
@@ -431,7 +451,7 @@ namespace GameLib.GameSerialization
             }
             if (typeSerializeFuncs.ContainsKey(t))
             {
-                return typeSerializeFuncs[t].CustomDeserialize(dataObject, info, propertyBytes,dataToIgnore);
+                return typeSerializeFuncs[t].CustomDeserialize(dataObject, info, propertyBytes, dataToIgnore);
             }
             else
             {
@@ -459,7 +479,7 @@ namespace GameLib.GameSerialization
                         bytes.Add(0);
                         bytes.Add(0);
 
-                        SerializeGameData(p.GetData.Invoke(data), dataToSerialize, bytes);
+                        SerializeGameData(p.GetData.Invoke(data), p.PropertyInfo.PropertyType, dataToSerialize, bytes);
 
                         ushort pLength = (ushort)(bytes.Count - pStartIndex - 2);
                         byte[] pLengthBytes = BitConverter.GetBytes(pLength);
@@ -595,7 +615,7 @@ namespace GameLib.GameSerialization
                 return DeserializeEdit((T)dataObject, (TypeSerializableInfo<T>)typeInfo, bytes, dataToIgnore);
             }
 
-            public T CustomDeserialize(T dataObject, TypeSerializableInfo<T> typeInfo, Dictionary<ushort, ArrayWithOffset<byte>> propertyBytes, 
+            public T CustomDeserialize(T dataObject, TypeSerializableInfo<T> typeInfo, Dictionary<ushort, ArrayWithOffset<byte>> propertyBytes,
                 Dictionary<object, HashSet<int>> dataToIgnore)
             {
                 if (customDeserializeFunc == null)

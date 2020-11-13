@@ -1,4 +1,5 @@
 ﻿using GameLib.GameSerialization;
+using MathNet.Numerics.LinearAlgebra;
 using MyCanvasLib;
 using System;
 using System.Collections.Generic;
@@ -18,6 +19,9 @@ namespace GameLib.Sprites
         public float Width { get { return Size.X; } set { Size = new Vector2(value, Size.Y); } }
         public float Height { get { return Size.Y; } set { Size = new Vector2(Size.X, value); } }
 
+        Vector2 origin;
+        [GameSerializableData(52)]
+        public Vector2 Origin { get => origin; set { origin = value; NotifyPropertyChanged(52); } }
         static RectSprite()
         {
             GameSerialize.AddType<RectSprite>(GameSerialize.GenericSerializeFunc, GameSerialize.GenericDeserializeFunc, true, 
@@ -28,11 +32,12 @@ namespace GameLib.Sprites
         {
 
         }
-        public RectSprite(Vector2 position, Vector2 size, Color color, Vector2 origin, float rotation = 0)
-            : base(position, Vector2.One, origin, rotation, ObjectTypes.RectSprite)
+        public RectSprite(SpriteRefrenceManager refManager, Vector2 position, Vector2 size, Color color, Vector2 origin, float rotation)
+            : base(position, Vector2.One, rotation, ObjectTypes.RectSprite, refManager)
         {
             Color = color;
             Size = size;
+            Origin = origin;
         }
         protected override async Task OverideDraw(MyCanvas2DContext context)
         {
@@ -40,9 +45,9 @@ namespace GameLib.Sprites
             await context.FillRectAsync(-Origin.X, -Origin.Y, Size.X, Size.Y);
         }
 
-        protected override bool PointInHitbox(Vector2 point)
+        protected override bool PointInHitbox(Vector2 point, Matrix<float> glbMatrix)
         {
-            return PointInRotatedRect(point, Size);
+            return PointInRotatedRect(glbMatrix, point, Size, Origin);
         }
     }
 }
