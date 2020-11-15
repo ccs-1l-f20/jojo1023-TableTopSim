@@ -4,6 +4,7 @@ using Newtonsoft.Json;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Numerics;
@@ -18,11 +19,16 @@ namespace GameLib.GameSerialization
     {
         static Dictionary<Type, TypeSerializableInfo> typeProperties = new Dictionary<Type, TypeSerializableInfo>();
         static Dictionary<Type, SerialzeDataFunc> typeSerializeFuncs = new Dictionary<Type, SerialzeDataFunc>();
+        public static void SerializeNullableInt(int? o, List<byte> bytes)
+        {
+            bytes.Add((byte)(o == null ? 0 : 255)); 
+            bytes.AddRange(BitConverter.GetBytes((int)(o == null ? 0 : o.Value)));
+        }
         static GameSerialize()
         {
             AddType<int>((o, info, s, bytes) => bytes.AddRange(BitConverter.GetBytes(o)),
                 (info, bytes) => { bytes.Offset += 4; return BitConverter.ToInt32(bytes.Array, bytes.Offset - 4); }, false);
-            AddType<int?>((o, info, s, bytes) => { bytes.Add((byte)(o == null ? 0 : 255)); bytes.AddRange(BitConverter.GetBytes(o == null ? 0 : o.Value)); },
+            AddType<int?>((o, info, s, bytes) => SerializeNullableInt(o, bytes),
                 (info, bytes) =>
                 {
                     bytes.Offset += 5; int? retVal = null;
@@ -110,7 +116,7 @@ namespace GameLib.GameSerialization
                     bytes.Add(0);
                     bytes.Add(0);
 
-                    SerializeGameData(l[i], null, dataToSerialize, bytes);
+                    SerializeGameData(l[i], dataToSerialize, bytes, null);
 
                     ushort pLength = (ushort)(bytes.Count - pStartIndex - 2);
                     byte[] pLengthBytes = BitConverter.GetBytes(pLength);
@@ -131,6 +137,14 @@ namespace GameLib.GameSerialization
             SerializeDict((IDictionary)dict, dataToSerialize, keysToRemove, bytes);
             return bytes;
         }
+        static Type GetForcedType(object o, Type t)
+        {
+            if(o == null || Nullable.GetUnderlyingType(t) != null)
+            {
+                return t;
+            }
+            return null;
+        }
         static void SerializeDict(IDictionary dict, Dictionary<object, HashSet<int>> dataToSerialize, IEnumerable keysToRemove, List<byte> bytes)
         {
             int startIndex = bytes.Count;
@@ -145,12 +159,13 @@ namespace GameLib.GameSerialization
                 if (dataIdsToSerialize == null || dataIdsToSerialize.Contains(key.GetHashCode()))
                 {
                     //bytes.AddRange(BitConverter.GetBytes(i));
-                    SerializeGameData(key, null, null, bytes);
+                    SerializeGameData(key, null, bytes, null);
                     int pStartIndex = bytes.Count;
                     bytes.AddRange(new byte[] { 0, 0, 0, 0 });
 
                     var currentVal = dict[key];
-                    SerializeGameData(currentVal, currentVal.GetType(), dataToSerialize, bytes);
+                    
+                    SerializeGameData(currentVal, dataToSerialize, bytes, null);
 
                     int pLength = bytes.Count - pStartIndex - 4;
                     byte[] pLengthBytes = BitConverter.GetBytes(pLength);
@@ -164,7 +179,7 @@ namespace GameLib.GameSerialization
             {
                 foreach (var key in keysToRemove)
                 {
-                    SerializeGameData(key, null, null, bytes);
+                    SerializeGameData(key, null, bytes, null);
                     bytes.AddRange(BitConverter.GetBytes((int)-1));
                 }
             }
@@ -312,12 +327,12 @@ namespace GameLib.GameSerialization
         public static List<byte> SerializeGameData(object data, Dictionary<object, HashSet<int>> specificDataToSerialize = null)
         {
             List<byte> bytes = new List<byte>();
-            SerializeGameData(data, data.GetType(), specificDataToSerialize, bytes);
+            SerializeGameData(data, specificDataToSerialize, bytes, data.GetType());
             return bytes;
         }
-        static void SerializeGameData(object data, Type t, Dictionary<object, HashSet<int>> dataToSerialize, List<byte> bytes)
+        static void SerializeGameData(object data, Dictionary<object, HashSet<int>> dataToSerialize, List<byte> bytes, Type t)
         {
-            if(data != null)
+            if(t == null)
             {
                 t = data.GetType();
             }
@@ -474,8 +489,8 @@ namespace GameLib.GameSerialization
                         int pStartIndex = bytes.Count;
                         bytes.Add(0);
                         bytes.Add(0);
-
-                        SerializeGameData(p.GetData.Invoke(data), p.PropertyInfo.PropertyType, dataToSerialize, bytes);
+                        object getData = p.GetData.Invoke(data);
+                        SerializeGameData(getData, dataToSerialize, bytes, GetForcedType(getData, p.PropertyInfo.PropertyType));
 
                         ushort pLength = (ushort)(bytes.Count - pStartIndex - 2);
                         byte[] pLengthBytes = BitConverter.GetBytes(pLength);

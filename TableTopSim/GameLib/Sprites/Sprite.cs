@@ -41,7 +41,7 @@ namespace GameLib.Sprites
 
         bool visable = true;
 
-        //[GameSerializableData(3)]
+        [GameSerializableData(3)]
         public bool Visiable { get => visable; set { visable = value; NotifyPropertyChanged(3); } }
 
         bool mouseOver = false;
@@ -167,6 +167,10 @@ namespace GameLib.Sprites
             Matrix<float> glbMatrix = Transform.GetGlobalMatrix(spriteMatries);
             if (!mouseBlocked)
             {
+                if(mouseState == MouseState.Down)
+                {
+
+                }
                 if (PointInHitbox(mousePos, glbMatrix))
                 {
                     mouseOver = true;
@@ -223,7 +227,7 @@ namespace GameLib.Sprites
 
         protected static bool PointInRotatedRect(Matrix<float> glbMatrix, Vector2 point, Vector2 size, Vector2 origin)
         {
-            point = Transform.TransformPoint(glbMatrix, point);
+            point = Transform.TransformPoint(Transform.InverseTransformMatrix(glbMatrix), point);
             return point.X >= -origin.X && point.Y >= -origin.Y && point.X < size.X - origin.X && point.Y < size.Y - origin.Y;
         }
         static Sprite DeserializeSprite(TypeSerializableInfo<Sprite> info, ArrayWithOffset<byte> bytes)

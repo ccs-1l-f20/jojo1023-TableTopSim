@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using System.Numerics;
 using System.Text;
 using MathNet.Numerics.LinearAlgebra;
+using System.Diagnostics;
+
 namespace GameLib.Sprites
 {
     public class Transform
@@ -22,12 +24,12 @@ namespace GameLib.Sprites
 
         float rotation;
         [GameSerializableData(3)]
-        public float Rotation { get => rotation; set { rotation = value; NotifyPropertyChanged(4); } }
+        public float Rotation { get => rotation; set { rotation = value; NotifyPropertyChanged(3); } }
 
         int? parent = null;
 
         [GameSerializableData(4)]
-        public int? Parent { get => parent; set { parent = value; NotifyPropertyChanged(6); } }
+        public int? Parent { get => parent; set { parent = value; NotifyPropertyChanged(4); } }
 
         bool hasId = false;
 
@@ -99,11 +101,11 @@ namespace GameLib.Sprites
             if (parent == null)
             {
                 matrix = GetMatrix();
-
             }
             else
             {
                 if (refManager == null) { throw new NullReferenceException(); }
+                //Debug.WriteLine($"Sprite Id: {spriteId}");
                 Sprite parentSprite = refManager.GetSprite(parent.Value);
                 matrix = parentSprite.Transform.GetGlobalMatrix() * GetMatrix();
             }
@@ -134,6 +136,14 @@ namespace GameLib.Sprites
             relPositon = RotatePoint(relPositon, parentSprite.Transform.Rotation);
             return relPositon + parentPos;
         }
+        public float GetGlobalRotation()
+        {
+            if (parent == null) { return Rotation; }
+            if (refManager == null) { throw new NullReferenceException(); }
+            Sprite parentSprite = refManager.GetSprite(parent.Value);
+            float parentRot = parentSprite.Transform.GetGlobalRotation();
+            return parentRot + Rotation;
+        }
 
         public static Vector2 TransformPoint(Matrix<float> matrix, Vector2 point)
         {
@@ -143,6 +153,24 @@ namespace GameLib.Sprites
             pointMatrix[2, 0] = 1;
             pointMatrix = matrix * pointMatrix;
             return new Vector2(pointMatrix[0, 0], pointMatrix[1, 0]);
+        }
+
+        public static Matrix<float> InverseTransformMatrix(Matrix<float> matrix)
+        {
+            float determinateThing = (matrix[0, 1] * matrix[1, 0]) - (matrix[0, 0] * matrix[1, 1]);
+            Matrix<float> inverse = CreateMatrix.Dense<float>(3, 3);
+            if (determinateThing == 0)
+            {
+                return inverse;
+            }
+            matrix.CopyTo(inverse);
+            inverse[0, 0] = -matrix[1, 1];
+            inverse[1, 1] = -matrix[0, 0];
+            inverse[0, 2] = (matrix[1, 1] * matrix[0, 2]) - (matrix[0, 1] * matrix[1, 2]);
+            inverse[1, 2] = (matrix[0, 0] * matrix[1, 2]) - (matrix[1, 0] * matrix[0, 2]);
+            inverse = inverse / determinateThing;
+            inverse[2,2] = 1;
+            return inverse;
         }
     }
 }

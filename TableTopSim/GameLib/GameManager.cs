@@ -47,12 +47,15 @@ namespace GameLib
         }
         public async Task Update(MyCanvas2DContext context, TimeSpan elapsedTime, CancellationToken ct)
         {
+            OnUpdate?.Invoke(elapsedTime);
+
             Dictionary<int, Matrix<float>> spriteMatries = new Dictionary<int, Matrix<float>>();
             Dictionary<int, LayerDepth> spriteLayerDepths = new Dictionary<int, LayerDepth>();
             LayerDepth lastLd = null;
             bool reSort = false;
             bool mouseBlocked = false;
-            for(int i = 0; i < Sprites.Count; i++)
+            MouseOnSprite = null;
+            for (int i = 0; i < Sprites.Count; i++)
             {
                 var ad = Sprites[i];
                 var sprite = SpriteRefrenceManager.GetSprite(ad);
@@ -78,7 +81,6 @@ namespace GameLib
                 Sprites = Sprites.OrderBy(s => spriteLayerDepths[s]).ToList();
             }
 
-            OnUpdate?.Invoke(elapsedTime);
             await context.BeginBatchAsync();
             await context.SetFillStyleAsync(BackColor.ToString());
             await context.FillRectAsync(0, 0, Width, Height);
