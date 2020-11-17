@@ -14,7 +14,6 @@ namespace GameLib
         const ushort layersDataId = 0;
         public event Action<LayerDepth, ushort> OnLayersChanged;
 
-
         BindingList<float> layers;
         [GameSerializableData(layersDataId)]
         public BindingList<float> Layers { get => layers; set { layers = value; OnLayersChanged?.Invoke(this, layersDataId); } }

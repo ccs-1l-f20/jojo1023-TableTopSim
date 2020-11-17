@@ -5,6 +5,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Drawing;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Numerics;
@@ -21,8 +22,27 @@ namespace GameLib.GameSerialization
         static Dictionary<Type, SerialzeDataFunc> typeSerializeFuncs = new Dictionary<Type, SerialzeDataFunc>();
         public static void SerializeNullableInt(int? o, List<byte> bytes)
         {
-            bytes.Add((byte)(o == null ? 0 : 255)); 
+            bytes.Add((byte)(o == null ? 0 : 255));
             bytes.AddRange(BitConverter.GetBytes((int)(o == null ? 0 : o.Value)));
+        }
+        static void SerializeRect(RectangleF r, List<byte> bytes)
+        {
+            bytes.AddRange(BitConverter.GetBytes(r.X));
+            bytes.AddRange(BitConverter.GetBytes(r.Y));
+            bytes.AddRange(BitConverter.GetBytes(r.Width));
+            bytes.AddRange(BitConverter.GetBytes(r.Height));
+        }
+        static RectangleF DeserializeRect(ArrayWithOffset<byte> bytes)
+        {
+            float x = BitConverter.ToSingle(bytes.Array, bytes.Offset);
+            bytes.Offset += 4;
+            float y = BitConverter.ToSingle(bytes.Array, bytes.Offset);
+            bytes.Offset += 4;
+            float width = BitConverter.ToSingle(bytes.Array, bytes.Offset);
+            bytes.Offset += 4;
+            float height = BitConverter.ToSingle(bytes.Array, bytes.Offset);
+            bytes.Offset += 4;
+            return new RectangleF(x, y, width, height);
         }
         static GameSerialize()
         {
@@ -58,6 +78,29 @@ namespace GameLib.GameSerialization
                     float y = BitConverter.ToSingle(bytes.Array, bytes.Offset);
                     bytes.Offset += 4;
                     return new Vector2(x, y);
+                }, false);
+            AddType<RectangleF>((v, info, s, bytes) => SerializeRect(v, bytes),
+                (info, bytes) => DeserializeRect(bytes), false);
+            AddType<RectangleF?>(
+                (v, info, s, bytes) =>
+                {
+                    bytes.Add((byte)(v == null ? 0 : 255));
+                    if (v == null) { SerializeRect(new RectangleF(), bytes); }
+                    else { SerializeRect(v.Value, bytes); }
+                },
+                (info, bytes) =>
+                {
+                    RectangleF? retVal = null;
+                    bytes.Offset++;
+                    if(bytes[-1] != 0)
+                    {
+                        retVal = DeserializeRect(bytes);
+                    }
+                    else
+                    {
+                        bytes.Offset += 12;
+                    }
+                    return retVal;
                 }, false);
             Sprite.InitSprite();
         }
@@ -139,7 +182,7 @@ namespace GameLib.GameSerialization
         }
         static Type GetForcedType(object o, Type t)
         {
-            if(o == null || Nullable.GetUnderlyingType(t) != null)
+            if (o == null || Nullable.GetUnderlyingType(t) != null)
             {
                 return t;
             }
@@ -164,7 +207,7 @@ namespace GameLib.GameSerialization
                     bytes.AddRange(new byte[] { 0, 0, 0, 0 });
 
                     var currentVal = dict[key];
-                    
+
                     SerializeGameData(currentVal, dataToSerialize, bytes, null);
 
                     int pLength = bytes.Count - pStartIndex - 4;
@@ -332,7 +375,7 @@ namespace GameLib.GameSerialization
         }
         static void SerializeGameData(object data, Dictionary<object, HashSet<int>> dataToSerialize, List<byte> bytes, Type t)
         {
-            if(t == null)
+            if (t == null)
             {
                 t = data.GetType();
             }

@@ -2,11 +2,13 @@
 using GameLib;
 using GameLib.GameSerialization;
 using GameLib.Sprites;
+using Microsoft.AspNetCore.Components;
 using Newtonsoft.Json;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Data.SqlClient;
 using System.Diagnostics;
 using System.Linq;
 using System.Net.WebSockets;
@@ -14,6 +16,8 @@ using System.Numerics;
 using System.Threading;
 using System.Threading.Tasks;
 using TableTopSim.Client.SpecificGame;
+using TableTopSim.Server.Controllers;
+using TableTopSim.Shared;
 
 namespace TableTopSim.Server
 {
@@ -24,6 +28,7 @@ namespace TableTopSim.Server
         public Dictionary<int, WebSocket> PlayerWebSockets { get; private set; }
         Dictionary<WebSocket, int> webSocketPlayers;
         public bool GameStarted { get; set; }
+        public int GameId { get; set; }
         //public GameManager GameManager { get; set; }
         CancellationTokenSource cts = new CancellationTokenSource();
         SpriteRefrenceManager refManager;
@@ -31,12 +36,14 @@ namespace TableTopSim.Server
 
         Random random = new Random();
         Dictionary<int, CursorInfo> playerCursors;
-        public GameRoom(int roomId, int initPlayerId, WebSocket initPlayerWs)
+        bool roomInit = false;
+        public GameRoom(int roomId, int initPlayerId, int gameId, WebSocket initPlayerWs)
         {
-            refManager = new SpriteRefrenceManager();
+            refManager = new SpriteRefrenceManager(new Dictionary<int, ElementReference>(), new ElementReference());
             //GameManager = new GameManager(new Size(1000, 1000), new SpriteRefrenceManager());
             GameStarted = false;
             RoomId = roomId;
+            GameId = gameId;
             PlayerWebSockets = new Dictionary<int, WebSocket>();
             webSocketPlayers = new Dictionary<WebSocket, int>();
             //if (initPlayerId != null)
@@ -44,14 +51,22 @@ namespace TableTopSim.Server
             webSocketPlayers.Add(initPlayerWs, initPlayerId);
             PlayerWebSockets.Add(initPlayerId, initPlayerWs);
             //}
-            TempInit();
         }
-        void TempInit()
+        public async Task InitalizeRoom(SqlConnection sqlConnection)
         {
-            AddSprite(new RectSprite(refManager, new Vector2(200, 200), new Vector2(100, 200), new Color(0, 0, 255), new Vector2(50, 100), 0));
-            AddSprite(new RectSprite(refManager, new Vector2(200, 200), new Vector2(10, 10), new Color(255, 0, 255), new Vector2(0, 0), 45));
-            AddSprite(new RectSprite(refManager, new Vector2(500, 500), new Vector2(50, 50), new Color(0, 0, 0), new Vector2(0, 0), 0));
-            AddSprite(new RectSprite(refManager, new Vector2(600, 500), new Vector2(50, 50), new Color(128, 128, 128), new Vector2(0, 0), 0));
+            GameDataDto gameData= await ReTryer.Try(100, 5, async () => await GameController.GetGame(sqlConnection, GameId));
+            if(gameData == null)
+            {
+                throw new NullReferenceException($"Cound't Get Game: {GameId}");
+            }
+            var spriteData = JsonConvert.DeserializeObject<Dictionary<int, Sprite>>(gameData.SerializedSpriteDictionary, new SpriteJsonConverter());
+            foreach(var k in spriteData.Keys)
+            {
+                Sprite s = spriteData[k];
+                refManager.AddSprite(k, s);
+                s.LayerDepth.Layers.Insert(0, 0);
+            }
+            roomInit = true;
         }
         int GetNewSpriteAddress()
         {
@@ -72,6 +87,7 @@ namespace TableTopSim.Server
 
         public async Task StartGame()
         {
+            while (!roomInit) { }
             GameStarted = true;
             List<byte> sendBytes = new List<byte>();
             sendBytes.Add((byte)MessageType.StartGame);

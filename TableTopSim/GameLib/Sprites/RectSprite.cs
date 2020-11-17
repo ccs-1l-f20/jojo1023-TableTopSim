@@ -11,11 +11,13 @@ namespace GameLib.Sprites
 {
     public class RectSprite : Sprite
     {
+        Color color;
         [GameSerializableData(50)]
-        public Color Color { get; set; }
+        public Color Color { get => color; set { color = value; NotifyPropertyChanged(50); } }
 
+        Vector2 size;
         [GameSerializableData(51)]
-        public Vector2 Size { get; set; }
+        public Vector2 Size { get => size; set { size = value; NotifyPropertyChanged(51); } }
         public float Width { get { return Size.X; } set { Size = new Vector2(value, Size.Y); } }
         public float Height { get { return Size.Y; } set { Size = new Vector2(Size.X, value); } }
 
@@ -35,9 +37,9 @@ namespace GameLib.Sprites
         public RectSprite(SpriteRefrenceManager refManager, Vector2 position, Vector2 size, Color color, Vector2 origin, float rotation)
             : base(position, Vector2.One, rotation, ObjectTypes.RectSprite, refManager)
         {
-            Color = color;
-            Size = size;
-            Origin = origin;
+            this.color = color;
+            this.size = size;
+            this.origin = origin;
         }
         protected override async Task OverideDraw(MyCanvas2DContext context)
         {

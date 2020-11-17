@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
 using System.Text;
 
@@ -9,7 +10,9 @@ namespace DataLayer
         public int Id { get; set; }
         public string Format { get; set; }
         public byte[] Image { get; set; }
+        [JsonProperty]
         public string Url { get; private set; }
+        [JsonConstructor]
         ImageDto() { }
         public ImageDto(int id, string format, byte[] image)
         {

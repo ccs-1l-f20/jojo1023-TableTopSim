@@ -20,14 +20,15 @@ namespace TableTopSim.Server.Controllers
             this.connection = connection;
         }
 
-        [HttpPost("CreatePlayerAndRoom/{playerName}")]
-        public async Task<PlayerAndRoomId> CreatePlayerAndRoom(string playerName)
-        {
-            return await CreatePlayerAndRoom(connection, playerName);
-        }
-        public static async Task<PlayerAndRoomId> CreatePlayerAndRoom(SqlConnection connection, string playerName)
+        //[HttpPost("CreatePlayerAndRoom/{playerName}")]
+        //public async Task<PlayerAndRoomId> CreatePlayerAndRoom(string playerName)
+        //{
+        //    return await CreatePlayerAndRoom(connection, playerName);
+        //}
+        public static async Task<PlayerAndRoomId> CreatePlayerAndRoom(SqlConnection connection, int gameId, string playerName)
         {
             SqlCommand command = new SqlCommand("uspCreatePlayerAndRoom", connection) { CommandType = CommandType.StoredProcedure };
+            command.Parameters.AddWithValue("@GameId", gameId);
             command.Parameters.AddWithValue("@PlayerName", playerName);
 
             if (!(await connection.TryOpenAsync())) { return null; }
@@ -44,23 +45,34 @@ namespace TableTopSim.Server.Controllers
             return retVal;
         }
 
-        [HttpPost("CreatePlayerInRoom/{playerName}/{roomId}")]
-        public async Task<int?> CreatePlayerInRoom(string playerName, int roomId)
-        {
-            return await CreatePlayerInRoom(connection, playerName, roomId);
-        }
-        public static async Task<int?> CreatePlayerInRoom(SqlConnection connection, string playerName, int roomId)
+        //[HttpPost("CreatePlayerInRoom/{playerName}/{roomId}")]
+        //public async Task<int?> CreatePlayerInRoom(string playerName, int roomId)
+        //{
+        //    return await CreatePlayerInRoom(connection, playerName, roomId);
+        //}
+        public static async Task<(int? playerId, bool noRoom)> CreatePlayerInRoom(SqlConnection connection, string playerName, int roomId)
         {
             SqlCommand command = new SqlCommand("uspCreatePlayerInRoom", connection) { CommandType = CommandType.StoredProcedure };
             command.Parameters.AddWithValue("@PlayerName", playerName);
             command.Parameters.AddWithValue("@RoomId", roomId);
 
-            if (!(await connection.TryOpenAsync())) { return null; }
+            if (!(await connection.TryOpenAsync())) { return (null, false); }
 
-            int? retVal = SqlExtensions.GetNullableSqlVal<int>(await command.ExecuteScalarAsync());
+            var dr = await command.ExecuteReaderAsync();
+
+            int? retVal = null;
+            bool noRoom = false;
+            if (await dr.ReadAsync())
+            {
+                retVal = SqlExtensions.GetNullableSqlVal<int>(dr["PlayerId"]);
+                if (retVal == null)
+                {
+                    noRoom = (bool)dr["NoRoom"];
+                }
+            }
 
             connection.Close();
-            return retVal;
+            return (retVal, noRoom);
         }
 
         [HttpGet("GetPlayers/{roomId}")]
@@ -78,7 +90,7 @@ namespace TableTopSim.Server.Controllers
                 if (players == null) { players = new List<Player>(); }
                 int hostId = (int)dr["HostPlayerId"];
                 int playerId = (int)dr["PlayerId"];
-                players.Add(new Player(playerId, (string)dr["Name"], roomId, playerId == hostId, (bool)dr["RoomOpen"]));
+                players.Add(new Player(playerId, (string)dr["Name"], roomId, (int)dr["GameId"], playerId == hostId, (bool)dr["RoomOpen"]));
             }
 
             connection.Close();
@@ -102,11 +114,13 @@ namespace TableTopSim.Server.Controllers
             {
                 int? roomId = SqlExtensions.GetNullableSqlVal<int>(dr["RoomId"]);
                 bool isHost = false;
+                int gameId = -1;
                 if (roomId != null)
                 {
                     isHost = playerId == (int)dr["HostPlayerId"];
+                    gameId = (int)dr["GameId"];
                 }
-                p = new Player((int)dr["PlayerId"], (string)dr["Name"], roomId, isHost, (bool)dr["RoomOpen"]);
+                p = new Player((int)dr["PlayerId"], (string)dr["Name"], roomId, gameId, isHost, (bool)dr["RoomOpen"]);
             }
             connection.Close();
             return p;

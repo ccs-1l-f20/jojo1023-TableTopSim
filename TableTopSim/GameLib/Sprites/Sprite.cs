@@ -48,7 +48,7 @@ namespace GameLib.Sprites
 
 
         public event Action<Sprite, ushort, object, ushort> OnPropertyChanged;
-        SpriteRefrenceManager refManager;
+        protected SpriteRefrenceManager refManager { get; private set; }
         static Sprite()
         {
             InitSprite();

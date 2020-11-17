@@ -25,18 +25,17 @@ namespace DataLayer
             bytes.AddRange(BitConverter.GetBytes(MessageId));
             return bytes;
         }
-        public async Task<ArraySegment<byte>> GetResponse()
+        public async Task<(ArraySegment<byte> response, bool error)> GetResponse()
         {
             response = null;
             try
             {
                 await Task.Delay(MyClientWebSocket.ResponseWaitTime, cts.Token);
             }
-            catch (TaskCanceledException e) { }
-            if (response == null) { return null; }
+            catch (TaskCanceledException) { }
+            if (response == null) { return (null, false); }
             bool responseError = MessageExtensions.GetNextBool(ref response);
-            if (responseError) { return null; }
-            return response;
+            return (response, responseError);
         }
         void RecievedResponse(ArraySegment<byte> r)
         {

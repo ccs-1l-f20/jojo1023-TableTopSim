@@ -32,12 +32,13 @@ namespace TableTopSim.Client.SpecificGame
         Sprite thisCursor = null;
         CursorInfo thisCursorInfo = null;
         Size size;
-        internal GameProgram(Size size, MyClientWebSocket ws, int roomId, int playerId)
+        internal GameProgram(Size size, MyClientWebSocket ws, int roomId, int playerId, 
+            Dictionary<int, ElementReference> imageElementRefs, ElementReference imageNotFound)
         //ElementReference cardBack, ElementReference king, ElementReference queen)
         {
             CursorInfo.Init();
             this.size = size;
-            Manager = new GameManager(size, new SpriteRefrenceManager());
+            Manager = new GameManager(size, new SpriteRefrenceManager(imageElementRefs, imageNotFound));
 
             this.ws = ws;
             this.roomId = roomId;
@@ -421,6 +422,7 @@ namespace TableTopSim.Client.SpecificGame
                         newSelected.Transform.Rotation = glbRotation;
                         newSelected.Parent = thisCursorInfo.CursorSpriteId;
                         thisCursorInfo.SelectedSpriteId = queuedChange.Value;
+                        newSelected.LayerDepth.Layers.Insert(0, 1);
                     }
                     thisCursorInfo.SelectedSpriteId = queuedChange;
                     spriteSelectedChanged = false;
@@ -464,6 +466,7 @@ namespace TableTopSim.Client.SpecificGame
             if (prevSelected.Parent == thisCursorInfo.CursorSpriteId)
             {
                 prevSelected.Transform.Position += thisCursor.Transform.Position;
+                prevSelected.LayerDepth.Layers.RemoveAt(0);
                 prevSelected.Parent = null;
             }
         }

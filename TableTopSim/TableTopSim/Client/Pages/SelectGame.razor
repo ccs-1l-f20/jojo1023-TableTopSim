@@ -1,0 +1,63 @@
+﻿@page "/SelectGame/{PlayerName}"
+@using DataLayer
+@inject HttpClient Http
+@inject GlobalData GlobalData
+@inject NavigationManager NavigationManager
+@inject Uri WebSocketUri
+
+<h3 style="margin-bottom: 15px">Select a Game</h3>
+
+<Table>
+    <TableHeader>
+        <TableHeaderCell>Id</TableHeaderCell>
+        <TableHeaderCell>Game Name</TableHeaderCell>
+        <TableHeaderCell>Players</TableHeaderCell>
+        <TableHeaderCell></TableHeaderCell>
+    </TableHeader>
+    <TableBody>
+        @if (games != null)
+        {
+            @foreach (var gameId in games.Keys)
+            {
+                <TableRow>
+                    <TableHeaderCell>@gameId</TableHeaderCell>
+                    <TableRowCell>@games[gameId].Name</TableRowCell>
+                    <TableRowCell>
+                        @($"{games[gameId].MinPlayers}-{games[gameId].MaxPlayers}")
+                    </TableRowCell>
+
+                    <TableRowCell>
+                        <Button Color="Color.Primary" Clicked="@(async () => await PlayGame(gameId))">Play</Button>
+                    </TableRowCell>
+                </TableRow>
+            }
+        }
+    </TableBody>
+</Table>
+@code {
+    Dictionary<int, GameDataDto> games = null;
+
+    [Parameter]
+    public string PlayerName { get; set; }
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        games = await GameDL.GetGames(Http);
+    }
+
+    async Task PlayGame(int gameId)
+    {
+        var ws = GlobalData.CreateWebSocket(WebSocketUri);
+        await ws.Connect();
+        var prId = await RoomDL.CreateRoom(ws, gameId, PlayerName);
+        if (prId == null)
+        {
+            GlobalData.ShowMessage("An Error Has Occured");
+        }
+        else
+        {
+            NavigationManager.NavigateTo($"Lobby/{prId.RoomId}/{prId.PlayerId}");
+        }
+    }
+}

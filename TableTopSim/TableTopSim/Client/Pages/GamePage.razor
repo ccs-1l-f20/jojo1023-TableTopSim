@@ -11,34 +11,38 @@
 @using System.Numerics
 @using TableTopSim.Client.SpecificGame
 @inject Uri WebSocketUri
-
-<img src="/images/cardBack.png" asp-append-version="true" @ref="CardBack" style="display:none" />
-<img src="/images/Chess_kdt45.svg" asp-append-version="true" @ref="King" style="display:none" />
-<img src="/images/Chess_qdt45.svg" asp-append-version="true" @ref="Queen" style="display:none" />
-
-@if (gameProgram != null) 
+<img src="/images/ImageNotFound.png" asp-append-version="true" @ref="imageNotFound" style="display:none" />
+@if (imageDtos != null)
 {
-<Game Size="size" Cts="cts" GameManager="gameProgram.Manager" @ref="gameComponent" />
+    @foreach (var imgId in imageDtos.Keys)
+    {
+        <img src="@imageDtos[imgId].Url" asp-append-version="true" @ref="imageElementRefs[imgId]" style="display:none"/>
+    }
+}
+@if (gameProgram != null)
+{
+    <Game Size="size" Cts="cts" GameManager="gameProgram.Manager" @ref="gameComponent" />
 }
 @code {
     [Parameter]
     public int PlayerId { get; set; }
     [Parameter]
     public int RoomId { get; set; }
-    ElementReference CardBack;
-    ElementReference King;
-    ElementReference Queen;
     Game gameComponent;
     GameProgram gameProgram;
     //GameManager gameManager;
     Player thisPlayer;
     GameLib.Size size = new GameLib.Size(1000, 1000);
     CancellationTokenSource cts = new CancellationTokenSource();
-
-    RectSprite rectSprite, rectSprite2, rectSprite3, rectSprite4;
+    GameDataDto gameInfo = null;
+    Dictionary<int, ImageDto> imageDtos = null;
+    Dictionary<int, ElementReference> imageElementRefs = new Dictionary<int, ElementReference>();
+    ElementReference imageNotFound;
+    //RectSprite rectSprite, rectSprite2, rectSprite3, rectSprite4;
     protected override async Task OnInitializedAsync()
     {
         NavigationManager.LocationChanged += OnLocationChanged;
+        await Task.Delay(new Random().Next(0, 300));
         thisPlayer = await GlobalData.ReconnectWebSocket(WebSocketUri, PlayerId);
         if (thisPlayer == null)
         {
@@ -68,7 +72,16 @@
             NavigationManager.NavigateTo($"Lobby/{RoomId}/{PlayerId}");
             return;
         }
-
+        gameInfo = await ReTryer.Try(300, 3, async () => await GameDL.GetGame(Http, thisPlayer.GameId));
+        if (gameInfo == null)
+        {
+            GlobalData.ShowMessage($"Connection Issue");
+            cts.Cancel();
+            NavigationManager.NavigateTo($"");
+            return;
+        }
+        size = new GameLib.Size(gameInfo.Width, gameInfo.Height);
+        _ = GetGameImages(thisPlayer.GameId);
         //var refManager = new SpriteRefrenceManager();
         //gameManager = new GameManager(size, refManager);
 
@@ -91,7 +104,25 @@
 
         //gameManager.OnUpdate += TestUpdate;
 
-        gameProgram = new GameProgram(size, GlobalData.WebSocket, RoomId, PlayerId);
+        gameProgram = new GameProgram(size, GlobalData.WebSocket, RoomId, PlayerId, imageElementRefs, imageNotFound);
+    }
+    async Task GetGameImages(int gameId)
+    {
+        imageDtos = await ReTryer.Try(300, 3, async () => await GameDL.GetGameImages(Http, thisPlayer.GameId));
+        if (imageDtos == null)
+        {
+            GlobalData.ShowMessage($"Can't Load Images");
+        }
+        else
+        {
+            imageElementRefs.Clear();
+            foreach (var id in imageDtos.Keys)
+            {
+                imageElementRefs.Add(id, new ElementReference());
+            }
+
+            StateHasChanged();
+        }
     }
     void OnLocationChanged(object sender, LocationChangedEventArgs args)
     {
@@ -103,7 +134,7 @@
 
     void TestUpdate(TimeSpan ts)
     {
-        rectSprite.Transform.Rotation += 0.5f;
+        //rectSprite.Transform.Rotation += 0.5f;
         //if (rectSprite.Transform.Scale.Y > 1)
         //{
         //    rectSprite.Transform.Scale -= new Vector2(0, 0.005f);
@@ -112,8 +143,8 @@
         //{
         //    rectSprite.Transform.Scale -= new Vector2(0.001f, 0);
         //}
-        rectSprite2.Transform.Rotation -= 1f;
-        rectSprite3.Transform.Rotation += 1f;
-        rectSprite4.Transform.Rotation -= 0.05f;
+        //rectSprite2.Transform.Rotation -= 1f;
+        //rectSprite3.Transform.Rotation += 1f;
+        //rectSprite4.Transform.Rotation -= 0.05f;
     }
 }

@@ -6,6 +6,11 @@
 @using TableTopSim.Shared
 @using DataLayer
 @using System.Threading
+
+@if (gameInfo != null)
+{
+    <h3>Game: @gameInfo.Name   @gameInfo.MinPlayers-@gameInfo.MaxPlayers Players</h3>
+}
 <h3>Room: @RoomId</h3>
 
 @if (players == null)
@@ -35,7 +40,8 @@ else
 
     @if (thisPlayer.IsHost)
     {
-        <Button Clicked="OnStartGameClick" Color="Color.Primary">Start Game</Button>
+        <Button Clicked="OnStartGameClick" Color="Color.Primary" 
+                Disabled="players==null||gameInfo==null||players.Length < gameInfo.MinPlayers || players.Length > gameInfo.MaxPlayers">Start Game</Button>
     }
 }
 
@@ -48,6 +54,7 @@ else
     public Player[] players { get; set; } = null;
     Player thisPlayer = null;
     CancellationTokenSource cts = new CancellationTokenSource();
+    GameDataDto gameInfo = null;
     protected override void OnInitialized()
     {
         NavigationManager.LocationChanged += OnLocationChanged;
@@ -108,6 +115,15 @@ else
             NavigationManager.NavigateTo($"Game/{RoomId}/{PlayerId}");
             return;
         }
+        gameInfo = await ReTryer.Try(300, 3, async () => await GameDL.GetGame(Http, thisPlayer.GameId));
+        if (gameInfo == null)
+        {
+            GlobalData.ShowMessage($"Connection Issue");
+            cts.Cancel();
+            NavigationManager.NavigateTo("");
+            return;
+        }
+
         GlobalData.WebSocket.OnRecieved += OnRecivedWSMessage;
 
 

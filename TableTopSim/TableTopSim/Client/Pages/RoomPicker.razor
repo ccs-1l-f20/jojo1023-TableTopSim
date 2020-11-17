@@ -44,38 +44,37 @@ else
     string playerName = "";
     int roomID = 0;
 
-    async void NewRoomClick()
+    void NewRoomClick()
     {
         //generate room and get player id
 
         //var prId = await ReTryer.Try(100, 5, async () => await RoomDL.CreatePlayerAndRoom(Http, playerName));
 
-        var ws = GlobalData.CreateWebSocket(WebSocketUri);
-        await ws.Connect();
-        var prId = await RoomDL.CreateRoom(ws, playerName);
-        if (prId == null)
-        {
-            GlobalData.ShowMessage("An Error Has Occured");
-        }
-        else
-        {
-            NavigationManager.NavigateTo($"Lobby/{prId.RoomId}/{prId.PlayerId}");
-        }
+
+        NavigationManager.NavigateTo($"SelectGame/{playerName}");
     }
-    async void JoinRoomClick()
+    async Task JoinRoomClick()
     {
         //validate room id and get player id
         //int? playerId = await ReTryer.Try(100, 5, async () => await RoomDL.CreatePlayerInRoom(Http, playerName, roomID));
         var ws = GlobalData.CreateWebSocket(WebSocketUri);
         await ws.Connect();
-        int? playerId = await RoomDL.JoinRoom(ws, roomID, playerName);
+        (int? playerId, bool noRoom) = await RoomDL.JoinRoom(ws, roomID, playerName);
         if (playerId != null)
         {
             NavigationManager.NavigateTo($"Lobby/{roomID}/{playerId.Value}");
         }
         else
         {
-            GlobalData.ShowMessage($"There Is No Open Room: {roomID}");
+            if (noRoom)
+            {
+                GlobalData.ShowMessage($"Room: {roomID} Is Already At Max Capacity");
+
+            }
+            else
+            {
+                GlobalData.ShowMessage($"There Is No Open Room: {roomID}");
+            }
         }
 
     }

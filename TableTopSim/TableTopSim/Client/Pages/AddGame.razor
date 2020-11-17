@@ -4,14 +4,20 @@
 @using DataLayer
 @using System.IO
 @using System.Text
+@using Newtonsoft.Json
+@using TableTopSim.Shared
+@using GameLib.Sprites
+@inject HttpClient Http
+@inject GlobalData GlobalData
+@inject NavigationManager NavigationManager
 <FileDialog OnChange="ViewFile" @ref="fileDialog" Accept=".json,image/*" AllowMultiple="true" />
 <h3 style="margin-bottom: 15px">Add New Game</h3>
 
 
 Game Name:
-<TextEdit Text="@gameName" TextChanged="GameNameChanged" MaxLength="100" Style="width:500px;margin-bottom:15px"></TextEdit>
+<TextEdit Text="@gameName" TextChanged="GameNameChanged" MaxLength="100" Style="width:500px;margin-bottom:15px" Disabled="addingGame"></TextEdit>
 
-<Button Color="Color.Primary" Clicked="OnButtonClick">Select Files</Button>
+<Button Color="Color.Primary" Clicked="OnButtonClick" Disabled="addingGame">Select Files</Button>
 
 <h4 style="margin-top: 25px">Files:</h4>
 
@@ -35,7 +41,7 @@ Game Name:
             }
             <TableRowCell></TableRowCell>
             <TableRowCell>
-                <Button Color="Color.Danger" Clicked="DeleteGameInfo" Disabled="jsonFile == null">Delete</Button>
+                <Button Color="Color.Danger" Clicked="DeleteGameInfo" Disabled="jsonFile == null || addingGame" >Delete</Button>
             </TableRowCell>
         </TableRow>
         @foreach (var imageKey in images.Keys)
@@ -48,7 +54,7 @@ Game Name:
                 </TableRowCell>
 
                 <TableRowCell>
-                    <Button Color="Color.Danger" Clicked="@(() => DeleteImage(imageKey))">Delete</Button>
+                    <Button Color="Color.Danger" Clicked="@(() => DeleteImage(imageKey))" Disabled="addingGame">Delete</Button>
                 </TableRowCell>
             </TableRow>
         }
@@ -56,12 +62,15 @@ Game Name:
 </Table>
 
 
-<Button Color="Color.Primary" Clicked="OnAddGameButtonClick" Disabled="jsonFile == null || gameName == null || gameName.Trim().Length == 0" style="margin-top:5px">Add Game</Button>
+<Button Color="Color.Primary" Clicked="OnAddGameButtonClick" Disabled="addingGame || jsonFile == null || gameName == null || gameName.Trim().Length == 0" 
+        style="margin-top:5px" Loading="addingGame">Add Game</Button>
 @code {
     FileDialog fileDialog;
     IFileListEntry jsonFile = null;
+    string jsonFileText = null;
     Dictionary<string, ImageDto> images = new Dictionary<string, ImageDto>();
     string gameName = "";
+    bool addingGame = false;
 
     async Task ViewFile(IFileListEntry[] files)
     {
@@ -73,6 +82,7 @@ Game Name:
                 if (rawFile.Type == "application/json")
                 {
                     jsonFile = rawFile;
+                    jsonFileText = Encoding.ASCII.GetString((await jsonFile.ReadAllAsync()).ToArray());
                 }
                 else
                 {
@@ -126,6 +136,121 @@ Game Name:
     }
     async Task OnAddGameButtonClick()
     {
+        addingGame = true;
+        StateHasChanged();
+        if (jsonFile == null || gameName == null || gameName.Trim().Length == 0) { return; }
+        JsonGame jg;
+        try
+        {
+            jg = JsonConvert.DeserializeObject<JsonGame>(jsonFileText);
+        }
+        catch (Exception)
+        {
+            addingGame = false;
+            GlobalData.ShowMessage("Issue Deserializing Json");
+            return;
+        }
+        if(jg == null)
+        {
+            addingGame = false;
+            GlobalData.ShowMessage("Issue Deserializing Json");
+            return;
+        }
+        if (jg.MinPlayers <= 0)
+        {
+            addingGame = false;
+            GlobalData.ShowMessage("Min Players Has To Be At Least 1");
+            return;
+        }
+        if (jg.MaxPlayers < jg.MinPlayers)
+        {
+            addingGame = false;
+            GlobalData.ShowMessage("Max Players Can Not Be Less Than Min Players");
+            return;
+        }
+        if (jg.CanvasSize.Width <= 0 || jg.CanvasSize.Height <= 0)
+        {
+            addingGame = false;
+            GlobalData.ShowMessage("Canvas Size Must Be Greater Than Zero");
+            return;
+        }
+        if (jg.ImageNames == null)
+        {
+            addingGame = false;
+            GlobalData.ShowMessage("Image Names Cannot Be Null");
+            return;
+        }
+        if (jg.SerializedSprites == null)
+        {
+            addingGame = false;
+            GlobalData.ShowMessage("SerializedSprites Cannot Be Null");
+            return;
+        }
+        else
+        {
+            try
+            {
+                var desSprites = JsonConvert.DeserializeObject<Dictionary<int, Sprite>>(jg.SerializedSprites, new SpriteJsonConverter());
+            }
+            catch (Exception)
+            {
+                addingGame = false;
+                GlobalData.ShowMessage("Issue Deserializing Spites Json");
+                return;
+            }
+        }
+        Dictionary<int, ImageDto> imagesToAdd = new Dictionary<int, ImageDto>();
 
+        foreach (var k in jg.ImageNames.Keys)
+        {
+            string imageName = jg.ImageNames[k];
+            if (!images.ContainsKey(imageName))
+            {
+                addingGame = false;
+                GlobalData.ShowMessage($"Missing image: {imageName}");
+                return;
+            }
+            ImageDto image = images[imageName];
+            imagesToAdd.Add(k, new ImageDto(k, image.Format, image.Image));
+        }
+
+        GameDataDto gameDataDto = new GameDataDto(gameName.Trim(), (int)jg.CanvasSize.Width, (int)jg.CanvasSize.Height, jg.MinPlayers, jg.MaxPlayers, jg.SerializedSprites);
+
+
+        int? gameId = null;
+
+        await ReTryer.Try(300, 3, async () =>
+        {
+            gameId = await GameDL.AddGame(Http, gameDataDto);
+            return gameId != null;
+        });
+        if (gameId == null)
+        {
+            addingGame = false;
+            GlobalData.ShowMessage($"Issue When Adding Game To Server, Try Again");
+            return;
+        }
+
+        if (await ReTryer.Try(300, 3, async () =>
+        {
+            return await GameDL.AddGameImages(Http, gameId.Value, imagesToAdd);
+        }))
+        {
+            addingGame = false;
+            GlobalData.ShowMessage($"Successfully Added Game");
+            NavigationManager.NavigateTo("");
+            return;
+        }
+        else
+        {
+            await ReTryer.Try(300, 5, async () =>
+            {
+                return await GameDL.DeleteGame(Http, gameId.Value);
+            });
+
+            addingGame = false;
+            GlobalData.ShowMessage($"Issue When Adding Game Images To Server, Try Again");
+            return;
+        }
     }
 }

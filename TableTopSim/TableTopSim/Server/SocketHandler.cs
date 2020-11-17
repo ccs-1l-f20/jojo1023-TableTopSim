@@ -118,15 +118,17 @@ namespace TableTopSim.Server
         async Task OnCreateRoom(WebSocket ws, long messageId, ArraySegment<byte> msgBytes)
         {
             MessageType msgType = MessageType.CreateRoom;
+            int gameId = MessageExtensions.GetNextInt(ref msgBytes);
             string playerName = msgBytes.GetNextString();
-            var playerAndRoom = await RoomController.CreatePlayerAndRoom(sqlConnection, playerName);
+            var playerAndRoom = await RoomController.CreatePlayerAndRoom(sqlConnection, gameId, playerName);
             List<byte> sendBytes = ConfirmationList(messageId, msgType, playerAndRoom == null);
             if(playerAndRoom != null)
             {
                 sendBytes.AddRange(BitConverter.GetBytes(playerAndRoom.PlayerId));
                 sendBytes.AddRange(BitConverter.GetBytes(playerAndRoom.RoomId));
                 AddPlayerWS(playerAndRoom.PlayerId, ws, playerAndRoom.RoomId);
-                var gr = new GameRoom(playerAndRoom.RoomId, playerAndRoom.PlayerId, ws);
+                var gr = new GameRoom(playerAndRoom.RoomId, playerAndRoom.PlayerId, gameId, ws);
+                _ = gr.InitalizeRoom(sqlConnection);
                 if (GameRooms.ContainsKey(playerAndRoom.RoomId))
                 {
                     GameRooms[playerAndRoom.RoomId] = gr;
@@ -154,7 +156,7 @@ namespace TableTopSim.Server
             MessageType msgType = MessageType.JoinRoom;
             int roomId = MessageExtensions.GetNextInt(ref msgBytes);
             string playerName = msgBytes.GetNextString();
-            int? playerId = await RoomController.CreatePlayerInRoom(sqlConnection, playerName, roomId);
+            (int? playerId, bool noRoom) = await RoomController.CreatePlayerInRoom(sqlConnection, playerName, roomId);
             bool error = playerId == null || !GameRooms.ContainsKey(roomId) || GameRooms[roomId].GameStarted;
             List<byte> sendBytes = ConfirmationList(messageId, msgType, error);
             if (!error)
@@ -163,6 +165,10 @@ namespace TableTopSim.Server
                 sendBytes.AddRange(BitConverter.GetBytes(roomId));
                 AddPlayerWS(playerId.Value, ws, roomId);
                 GameRooms[roomId].AddPlayerWS(playerId.Value, ws);
+            }
+            else
+            {
+                sendBytes.Add((byte)(noRoom ? 255 : 0));
             }
             await ws.SendAsync(new ArraySegment<byte>(sendBytes.ToArray()), WebSocketMessageType.Binary, true, CancellationToken.None);
         }
@@ -196,6 +202,7 @@ namespace TableTopSim.Server
             {
                 int sendRoomId = playerInfo.RoomId == null ? -1 : playerInfo.RoomId.Value;
                 sendBytes.AddRange(BitConverter.GetBytes(sendRoomId));
+                sendBytes.AddRange(BitConverter.GetBytes(playerInfo.GameId));
                 sendBytes.Add(GetBoolByte(playerInfo.IsHost));
                 sendBytes.Add(GetBoolByte(playerInfo.RoomOpen));
                 MessageExtensions.AddStringBytes(sendBytes, playerInfo.Name);

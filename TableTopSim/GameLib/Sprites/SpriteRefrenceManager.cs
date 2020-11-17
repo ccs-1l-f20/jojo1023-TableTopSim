@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.AspNetCore.Components;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -12,6 +13,8 @@ namespace GameLib.Sprites
         //Dictionary<Sprite, int> defaultSpriteAddresses;
         public Dictionary<int, Sprite> SpriteRefrences { get; set; }
         public Dictionary<Sprite, int> SpriteAddresses { get; set; }
+        public Dictionary<int, ElementReference> ImageElementRefs { get; private set; }
+        public ElementReference ImageNotFound { get; private set; }
         //public SpriteRefrenceManager(Dictionary<int, Sprite> defaultSprites)
         //{
         //    this.defaultSprites = defaultSprites;
@@ -19,10 +22,12 @@ namespace GameLib.Sprites
         //    SpriteRefrences = new Dictionary<int, Sprite>();
         //    SpriteAddresses = new Dictionary<Sprite, int>();
         //}
-        public SpriteRefrenceManager()
+        public SpriteRefrenceManager(Dictionary<int, ElementReference> imageElementRefs, ElementReference imageNotFound)
         {
             SpriteRefrences = new Dictionary<int, Sprite>();
             SpriteAddresses = new Dictionary<Sprite, int>();
+            ImageElementRefs = imageElementRefs;
+            ImageNotFound = imageNotFound;
         }
         public void Reset()
         {
