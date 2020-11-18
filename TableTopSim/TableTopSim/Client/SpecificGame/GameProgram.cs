@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Components;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Numerics;
 using System.Threading.Tasks;
@@ -38,7 +39,9 @@ namespace TableTopSim.Client.SpecificGame
         {
             CursorInfo.Init();
             this.size = size;
+            //Debug.WriteLine($"Pre Manager {playerId}");
             Manager = new GameManager(size, new SpriteRefrenceManager(imageElementRefs, imageNotFound));
+            //Debug.WriteLine($"Post Manager {playerId}");
 
             this.ws = ws;
             this.roomId = roomId;
@@ -217,7 +220,7 @@ namespace TableTopSim.Client.SpecificGame
                 if (thisCursorInfo.SelectedSpriteId == null)
                 {
                     Sprite s = Manager.MouseOnSprite;
-                    if (s != null)
+                    if (s != null && s.Selectable)
                     {
                         int add = refManager.GetAddress(s);
                         if (thisCursorInfo.SelectedSpriteId != add)
@@ -276,6 +279,7 @@ namespace TableTopSim.Client.SpecificGame
         }
         private void Update(TimeSpan elapsedTime)
         {
+            //Debug.WriteLine($"Update {playerId}");
             totalTime += elapsedTime;
 
             GameDataUpdate completeUpdate = null;

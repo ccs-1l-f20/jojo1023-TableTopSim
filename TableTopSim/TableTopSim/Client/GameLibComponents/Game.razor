@@ -53,8 +53,8 @@
 
 
             await context.ClearRectAsync(0, 0, Width, Height);
-
-            await Task.Run(async () => await Update(Cts.Token));
+            _ = Update(Cts.Token);
+            //await Task.Run(async () => await Update(Cts.Token));
         }
     }
     void OnLocationChanged(object sender, LocationChangedEventArgs args)
@@ -101,7 +101,7 @@
 
             long previousElapsedMilli = stopwatch.ElapsedMilliseconds;
             stopwatch.Restart();
-            await Task.Delay((int)Math.Max(0, 16 - previousElapsedMilli), ct);
+            await Task.Delay(60, ct);
         }
     }
     void MouseUp(MouseEventArgs args)

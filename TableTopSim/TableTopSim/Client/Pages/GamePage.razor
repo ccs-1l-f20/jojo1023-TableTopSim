@@ -16,7 +16,7 @@
 {
     @foreach (var imgId in imageDtos.Keys)
     {
-        <img src="@imageDtos[imgId].Url" asp-append-version="true" @ref="imageElementRefs[imgId]" style="display:none"/>
+        <img src="@imageDtos[imgId].Url" asp-append-version="true" @ref="imageElementRefs[imgId]" style = "display:none"/>
     }
 }
 @if (gameProgram != null)
@@ -81,6 +81,7 @@
             return;
         }
         size = new GameLib.Size(gameInfo.Width, gameInfo.Height);
+        System.Diagnostics.Debug.WriteLine("Pre Get Images");
         _ = GetGameImages(thisPlayer.GameId);
         //var refManager = new SpriteRefrenceManager();
         //gameManager = new GameManager(size, refManager);
@@ -109,6 +110,7 @@
     async Task GetGameImages(int gameId)
     {
         imageDtos = await ReTryer.Try(300, 3, async () => await GameDL.GetGameImages(Http, thisPlayer.GameId));
+        System.Diagnostics.Debug.WriteLine("Post Get Images");
         if (imageDtos == null)
         {
             GlobalData.ShowMessage($"Can't Load Images");

@@ -97,7 +97,7 @@ namespace TableTopSim.Server
             playerCursors = new Dictionary<int, CursorInfo>();
             foreach (var pId in PlayerWebSockets.Keys)
             {
-                RectSprite cursor = new RectSprite(refManager, new Vector2(0, 0), new Vector2(8, 8), new Color(240, 240, 240), Vector2.Zero, 0);
+                RectSprite cursor = new RectSprite(refManager, new Vector2(0, 0), new Vector2(8, 8), new Color(200, 200, 200), Vector2.Zero, 0) { Selectable = false };
                 cursor.Transform.Scale *= 1.15f;
                 int cAd = AddSprite(cursor);
                 cursor.LayerDepth[0] = -1;
@@ -119,7 +119,7 @@ namespace TableTopSim.Server
                     {
                         if (!playerCursors.ContainsKey(pId))
                         {
-                            RectSprite cursor = new RectSprite(refManager, new Vector2(0, 0), new Vector2(8, 8), new Color(240, 240, 240), Vector2.Zero, 0);
+                            RectSprite cursor = new RectSprite(refManager, new Vector2(0, 0), new Vector2(8, 8), new Color(200, 200, 200), Vector2.Zero, 0) { Selectable = false };
                             cursor.Transform.Scale *= 1.15f;
                             int cAd = AddSprite(cursor);
                             cursor.LayerDepth[0] = -1;

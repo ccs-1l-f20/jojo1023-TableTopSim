@@ -40,9 +40,12 @@ namespace GameLib.Sprites
         public int? Parent { get => Transform.Parent; set { Transform.Parent = value; } }
 
         bool visable = true;
-
         [GameSerializableData(3)]
         public bool Visiable { get => visable; set { visable = value; NotifyPropertyChanged(3); } }
+
+        bool selectable = true;
+        [GameSerializableData(4)]
+        public bool Selectable { get => selectable; set { selectable = value; NotifyPropertyChanged(4); } }
 
         bool mouseOver = false;
 
