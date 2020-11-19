@@ -26,8 +26,7 @@ namespace GameLib.Sprites
         public Vector2 Origin { get => origin; set { origin = value; NotifyPropertyChanged(52); } }
         static RectSprite()
         {
-            GameSerialize.AddType<RectSprite>(GameSerialize.GenericSerializeFunc, GameSerialize.GenericDeserializeFunc, true, 
-                GameSerialize.GenericDeserializeEditFunc, GameSerialize.CustomGenericDeserializeFunc);
+            GameSerialize.AddType<RectSprite>(GameSerialize.GenericSerializeFunc, GameSerialize.GenericDeserializeFunc, GameSerialize.CustomGenericDeserializeFunc);
         }
         public RectSprite()
             : base(ObjectTypes.RectSprite)

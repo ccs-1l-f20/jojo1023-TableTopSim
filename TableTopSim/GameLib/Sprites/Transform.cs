@@ -39,8 +39,15 @@ namespace GameLib.Sprites
 
         static Transform()
         {
-            GameSerialize.AddType<Transform>(GameSerialize.GenericSerializeFunc, GameSerialize.GenericDeserializeFunc, true,
-                GameSerialize.GenericDeserializeEditFunc);
+            GameSerialize.AddType<Transform>(GameSerialize.GenericSerializeFunc, GameSerialize.GenericDeserializeFunc, true);
+        }
+        public Transform()
+        {
+            position = Vector2.Zero;
+            scale = Vector2.One;
+            rotation = 0;
+            parent = null;
+            sprite = null;
         }
         public Transform(Sprite sprite)
         {
@@ -50,9 +57,10 @@ namespace GameLib.Sprites
             parent = null;
             this.sprite = sprite;
         }
-        public void SetRefManager(SpriteRefrenceManager refManager)
+        public void SetRefManager(SpriteRefrenceManager refManager, Sprite sprite)
         {
             this.refManager = refManager;
+            this.sprite = sprite;
             hasId = true;
         }
         public Transform(Vector2 position, Vector2 scale, float rotation, Sprite sprite)

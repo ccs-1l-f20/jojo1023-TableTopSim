@@ -26,8 +26,7 @@ namespace GameLib
 
         static LayerDepth()
         {
-            GameSerialize.AddType<LayerDepth>(GameSerialize.GenericSerializeFunc, GameSerialize.GenericDeserializeFunc, true,
-                GameSerialize.GenericDeserializeEditFunc);
+            GameSerialize.AddType<LayerDepth>(GameSerialize.GenericSerializeFunc, GameSerialize.GenericDeserializeFunc, true);
         }
         public LayerDepth()
         {

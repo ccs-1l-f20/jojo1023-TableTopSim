@@ -134,10 +134,9 @@ namespace TableTopSim.Server.Controllers
 
             if (!(await connection.TryOpenAsync())) { return null; }
             var dr = await command.ExecuteReaderAsync();
-            Dictionary<int, ImageDto> images = null;
+            Dictionary<int, ImageDto> images = new Dictionary<int, ImageDto>();
             while (await dr.ReadAsync())
             {
-                if(images == null) { images = new Dictionary<int, ImageDto>(); }
                 int imgId = (int)dr["ImageId"];
                 var img = new ImageDto(imgId, (string)dr["Format"], (byte[])dr["Image"]);
                 img.UpdateUrl();

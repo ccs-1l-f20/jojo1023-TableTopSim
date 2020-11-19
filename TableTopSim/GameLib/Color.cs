@@ -29,7 +29,7 @@ namespace GameLib
         {
             return $"rgb({R}, {G}, {B})";
         }
-        static void Serialize(Color c, TypeSerializableInfo<Color> info, Dictionary<object, HashSet<int>> dataToSerialize, List<byte> bytes)
+        static void Serialize(Color c, TypeSerializableInfo<Color> info, List<byte> bytes)
         {
             bytes.Add(c.R);
             bytes.Add(c.G);
