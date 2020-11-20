@@ -55,26 +55,33 @@ namespace GameLib
             bool reSort = false;
             bool mouseBlocked = false;
             MouseOnSprite = null;
-            for (int i = 0; i < Sprites.Count; i++)
+            try
             {
-                var ad = Sprites[i];
-                var sprite = SpriteRefrenceManager.GetSprite(ad);
-                if(sprite.Update(MousePos, MouseState, mouseBlocked, elapsedTime, spriteMatries))
+                for (int i = 0; i < Sprites.Count; i++)
                 {
-                    if (!mouseBlocked)
+                    var ad = Sprites[i];
+                    var sprite = SpriteRefrenceManager.GetSprite(ad);
+                    if (sprite.Update(MousePos, MouseState, mouseBlocked, elapsedTime, spriteMatries))
                     {
-                        MouseOnSprite = sprite;
-                        mouseBlocked = true;
+                        if (!mouseBlocked)
+                        {
+                            MouseOnSprite = sprite;
+                            mouseBlocked = true;
+                        }
                     }
+                    LayerDepth currentLd = sprite.GetGlobalLayerDepth();
+                    var test = currentLd.Layers.ToArray();
+                    spriteLayerDepths.Add(ad, currentLd);
+                    if (!reSort && lastLd != null && currentLd < lastLd)
+                    {
+                        reSort = true;
+                    }
+                    lastLd = currentLd;
                 }
-                LayerDepth currentLd = sprite.GetGlobalLayerDepth();
-                var test = currentLd.Layers.ToArray();
-                spriteLayerDepths.Add(ad, currentLd);
-                if(!reSort && lastLd != null && currentLd < lastLd)
-                {
-                    reSort = true;
-                }
-                lastLd = currentLd;
+            }
+            catch(Exception e)
+            {
+                string st = e.StackTrace;
             }
             if (reSort)
             {

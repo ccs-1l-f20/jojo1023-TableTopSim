@@ -46,7 +46,8 @@ namespace GameLib.GameSerialization
         }
         static GameSerialize()
         {
-            AddType<int>((o, info, bytes) => bytes.AddRange(BitConverter.GetBytes(o)),
+            AddType<int>((o, info, bytes) => 
+            bytes.AddRange(BitConverter.GetBytes(o)),
                 (info, bytes) => { bytes.Offset += 4; return BitConverter.ToInt32(bytes.Array, bytes.Offset - 4); }, false);
             AddType<int?>((o, info, bytes) => SerializeNullableInt(o, bytes),
                 (info, bytes) =>
@@ -324,6 +325,7 @@ namespace GameLib.GameSerialization
                 if(data == null) { return; }
                 t = data.GetType();
             }
+            //string tn = t.Name;
             if (specificData.ContainsKey(currentPath))
             {
                 bytes.Add((byte)currentPath.Count);
@@ -334,7 +336,7 @@ namespace GameLib.GameSerialization
                 int startIndex = bytes.Count;
                 bytes.AddRange(new byte[] { 0, 0 });
                 SerializeGameData(data, bytes, t);
-                int length = bytes.Count - startIndex - 4;
+                int length = bytes.Count - startIndex - 2;
                 byte[] lengthBytes = BitConverter.GetBytes((ushort)length);
                 bytes[startIndex] = lengthBytes[0];
                 bytes[startIndex + 1] = lengthBytes[1];
@@ -448,7 +450,7 @@ namespace GameLib.GameSerialization
                     bytes.Offset += 4;
                 }
                 ushort dataLength = BitConverter.ToUInt16(bytes.Array, bytes.Offset);
-                bytes.Offset += 4;
+                bytes.Offset += 2;
 
                 dataObject = PvtDeserializeEditSpecifcData(dataObject, path, bytes.Slice(0, dataLength));
                 bytes.Offset += dataLength;

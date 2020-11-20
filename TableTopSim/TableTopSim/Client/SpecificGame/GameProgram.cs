@@ -123,7 +123,10 @@ namespace TableTopSim.Client.SpecificGame
                 sendBytes.Add((byte)MessageType.ChangeGameState);
                 sendBytes.AddRange(BitConverter.GetBytes((long)0));
                 sendBytes.AddRange(BitConverter.GetBytes(roomId));
+                if(thisCursorInfo != null && thisCursorInfo.SelectedSpriteId != null)
+                {
 
+                }
                 List<byte> specificSerializedData = GameSerialize.SpecificSerializeGameData(refManager.SpriteRefrences, changedProperties);
                 changedProperties.Clear();
                 sendBytes.AddRange(BitConverter.GetBytes(specificSerializedData.Count));
@@ -134,7 +137,8 @@ namespace TableTopSim.Client.SpecificGame
                     selectedSprite = thisCursorInfo.SelectedSpriteId;
                     if(selectedSprite != null)
                     {
-
+                        Sprite sprite = refManager.GetSprite(selectedSprite.Value);
+                        var p = sprite.Parent;
                     }
                 }
                 GameSerialize.SerializeNullableInt(selectedSprite, sendBytes);
