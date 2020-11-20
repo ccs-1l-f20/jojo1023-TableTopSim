@@ -50,7 +50,7 @@ namespace GameLib.Sprites
         bool mouseOver = false;
 
 
-        public event Action<Sprite, ushort, object, ushort> OnPropertyChanged;
+        public event Action<Sprite, List<int>> OnPropertyChanged;
         protected SpriteRefrenceManager refManager { get; private set; }
         static Sprite()
         {
@@ -64,7 +64,7 @@ namespace GameLib.Sprites
                 GetDeafaultSprites.Add(ObjectTypes.RectSprite, (() => new RectSprite(), typeof(RectSprite)));
                 GetDeafaultSprites.Add(ObjectTypes.ImageSprite, (() => new ImageSprite(), typeof(ImageSprite)));
                 GetDeafaultSprites.Add(ObjectTypes.EmptySprite, (() => new EmptySprite(), typeof(EmptySprite)));
-                GameSerialize.AddType<Sprite>(GameSerialize.GenericSerializeFunc, DeserializeSprite, true, DeserializeEditSprite);
+                GameSerialize.AddType<Sprite>(GameSerialize.GenericSerializeFunc, DeserializeSprite, true);
             }
         }
         public Sprite(ObjectTypes objectType)
@@ -90,17 +90,22 @@ namespace GameLib.Sprites
         }
         private void LayerDepth_OnLayersChanged(LayerDepth arg1, ushort arg2)
         {
-            OnPropertyChanged?.Invoke(this, layerDepthDataId, arg1, arg2);
+            OnPropertyChanged?.Invoke(this, new List<int>() { layerDepthDataId, arg2 });
         }
 
         private void Transform_OnPropertyChanged(Transform arg1, ushort arg2)
         {
-            OnPropertyChanged?.Invoke(this, transformDataId, arg1, arg2);
+            OnPropertyChanged?.Invoke(this, new List<int>() { transformDataId, arg2 });
         }
         public void SetRefManager(SpriteRefrenceManager refManager)
         {
             this.refManager = refManager;
-            Transform.SetRefManager(refManager);
+            Transform.SetRefManager(refManager, this);
+
+            Transform.OnPropertyChanged -= Transform_OnPropertyChanged;
+            LayerDepth.OnLayersChanged -= LayerDepth_OnLayersChanged;
+            Transform.OnPropertyChanged += Transform_OnPropertyChanged;
+            LayerDepth.OnLayersChanged += LayerDepth_OnLayersChanged;
         }
 
         public async Task Draw(MyCanvas2DContext context, Dictionary<int, Matrix<float>> spriteMatries)
@@ -241,22 +246,11 @@ namespace GameLib.Sprites
             var keyTest = GetDeafaultSprites.First().Key;
             var test = GetDeafaultSprites[objectType];
             Sprite dataObject = GetDeafaultSprites[objectType].constructor.Invoke();
-            return (Sprite)GameSerialize.CustomDeserialize(dataObject, propertyBytes, null);
-        }
-        static Sprite DeserializeEditSprite(Sprite dataObject, TypeSerializableInfo<Sprite> info, ArrayWithOffset<byte> bytes, Dictionary<object, HashSet<int>> dataToIgnore)
-        {
-            var propertyBytes = GameSerialize.GetPropertyBytes(bytes);
-            ObjectTypes objectType = (ObjectTypes)propertyBytes[objectTypeDataId][0];
-            var spriteTypeInfo = GetDeafaultSprites[objectType];
-            if (dataObject.GetType() != spriteTypeInfo.type)
-            {
-                dataObject = spriteTypeInfo.constructor.Invoke();
-            }
-            return (Sprite)GameSerialize.CustomDeserialize(dataObject, propertyBytes, dataToIgnore);
+            return (Sprite)GameSerialize.CustomDeserialize(dataObject, propertyBytes);
         }
         protected void NotifyPropertyChanged(ushort propertyDataId)
         {
-            OnPropertyChanged?.Invoke(this, propertyDataId, null, 0);
+            OnPropertyChanged?.Invoke(this, new List<int>() { propertyDataId });
         }
 
     }
@@ -264,8 +258,7 @@ namespace GameLib.Sprites
     {
         static EmptySprite()
         {
-            GameSerialize.AddType<EmptySprite>(GameSerialize.GenericSerializeFunc, GameSerialize.GenericDeserializeFunc, true,
-                GameSerialize.GenericDeserializeEditFunc, GameSerialize.CustomGenericDeserializeFunc);
+            GameSerialize.AddType<EmptySprite>(GameSerialize.GenericSerializeFunc, GameSerialize.GenericDeserializeFunc, GameSerialize.CustomGenericDeserializeFunc);
         }
         public EmptySprite()
             : base(ObjectTypes.EmptySprite) { }

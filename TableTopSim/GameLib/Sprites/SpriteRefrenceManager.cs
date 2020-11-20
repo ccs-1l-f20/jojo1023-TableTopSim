@@ -40,7 +40,14 @@ namespace GameLib.Sprites
             //{
             //    return defaultSprites[address];
             //}
-            return SpriteRefrences[address];
+            try
+            {
+                return SpriteRefrences[address];
+            }
+            catch
+            {
+                return null;
+            }
         }
         public bool ContainsAddress(int address)
         {

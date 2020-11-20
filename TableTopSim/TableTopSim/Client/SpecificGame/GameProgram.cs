@@ -84,15 +84,11 @@ namespace TableTopSim.Client.SpecificGame
                 message.Offset += 4;
                 ArrayWithOffset<byte> serializedData = message.Slice(0, dataLength);
                 message.Offset += dataLength;
-                //int spritesSpritesLength = BitConverter.ToInt32(message.Array, message.Offset);
-                //message.Offset += 4;
-                //ArrayWithOffset<byte> serializeGameSprites = message.Slice(0, spritesSpritesLength);
                 if (mt == MessageType.GameState)
                 {
                     dataLength = BitConverter.ToInt32(message.Array, message.Offset);
                     message.Offset += 4;
                     ArrayWithOffset<byte> cursorSprites = message.Slice(0, dataLength);
-                    //System.Diagnostics.Debug.WriteLine($"Currsor Offset : {cursorSprites.Offset} REcived Cursor Length: {dataLength}");
 
                     message.Offset += dataLength;
                     lock (gameStateLockObject)
@@ -127,92 +123,46 @@ namespace TableTopSim.Client.SpecificGame
                 sendBytes.Add((byte)MessageType.ChangeGameState);
                 sendBytes.AddRange(BitConverter.GetBytes((long)0));
                 sendBytes.AddRange(BitConverter.GetBytes(roomId));
+                if(thisCursorInfo != null && thisCursorInfo.SelectedSpriteId != null)
+                {
 
-                List<byte> specificSerializedData = GameSerialize.SerializeGameData(refManager.SpriteRefrences, changedProperties);
+                }
+                List<byte> specificSerializedData = GameSerialize.SpecificSerializeGameData(refManager.SpriteRefrences, changedProperties);
+                changedProperties.Clear();
                 sendBytes.AddRange(BitConverter.GetBytes(specificSerializedData.Count));
                 sendBytes.AddRange(specificSerializedData);
                 int? selectedSprite = null;
                 if(thisCursorInfo != null)
                 {
                     selectedSprite = thisCursorInfo.SelectedSpriteId;
+                    if(selectedSprite != null)
+                    {
+                        Sprite sprite = refManager.GetSprite(selectedSprite.Value);
+                        var p = sprite.Parent;
+                    }
                 }
                 GameSerialize.SerializeNullableInt(selectedSprite, sendBytes);
 
                 _ = ws.SendMessageAsync(new ArraySegment<byte>(sendBytes.ToArray()));
             }
-            changedProperties.Clear();
         }
 
         bool ignorePropertyChanged = false;
-        Dictionary<object, HashSet<int>> changedProperties = new Dictionary<object, HashSet<int>>();
+        PathTrie<object> changedProperties = new PathTrie<object>();
 
-        void OnPropertyChanged(Sprite sprite, ushort objId, object obj, ushort objPropertyId)
+        void OnPropertyChanged(Sprite sprite, List<int> propertyPath)
         {
             if (!ignorePropertyChanged)
             {
-                if (changedProperties.Count == 0)
-                {
-                    changedProperties.Add(refManager.SpriteRefrences, new HashSet<int>());
-                }
-                var dictHash = changedProperties[refManager.SpriteRefrences];
-                int spriteAddress = refManager.GetAddress(sprite);
-                if (!dictHash.Contains(spriteAddress))
-                {
-                    dictHash.Add(spriteAddress);
-                }
-                if (!changedProperties.ContainsKey(sprite))
-                {
-                    changedProperties.Add(sprite, new HashSet<int>());
-                }
-
-                var spriteHashSet = changedProperties[sprite];
-                if (!spriteHashSet.Contains(objId))
-                {
-                    spriteHashSet.Add(objId);
-                }
-                if(obj != null)
-                {
-                    if (!changedProperties.ContainsKey(obj))
-                    {
-                        changedProperties.Add(obj, new HashSet<int>());
-                    }
-
-                    var objHashSet = changedProperties[obj];
-                    if (!objHashSet.Contains(objPropertyId))
-                    {
-                        objHashSet.Add(objPropertyId);
-                    }
-                }
+                int add = refManager.GetAddress(sprite);
+                propertyPath.Insert(0, add);
+                changedProperties.Insert(propertyPath, null, true);
             }
         }
 
-        private void OnKeyUp(KeyInfo keyInfo)
-        {
-            //if (!keyInfo.LastRepeat && keyInfo.Code == "KeyR")
-            //{
-            //    float currentRot = Extensions.GetPositiveRotation(imageSprite.Rotation);
-            //    float mod90 = currentRot % 90;
-            //    if (manager.Keyboard.ShiftKey)
-            //    {
-            //        imageSprite.Rotation -= mod90;
-            //        imageSprite.Rotation -= mod90 == 0 ? 90 : 0;
-            //    }
-            //    else
-            //    {
-            //        imageSprite.Rotation += 90 - mod90;
-            //    }
-            //}
-        }
+        private void OnKeyUp(KeyInfo keyInfo) { }
 
-        private void OnKeyDown(KeyInfo keyInfo)
-        {
-            //if (keyInfo.Repeat && keyInfo.Code == "KeyR")
-            //{
-            //    Vector2 relativePoint = manager.MousePos - imageSprite.Position;
-            //    imageSprite.Rotation = Extensions.RadiansToDegrees(-(float)Math.Atan2(relativePoint.X, relativePoint.Y));
-            //}
-        }
-
+        private void OnKeyDown(KeyInfo keyInfo) { }
         private void MouseDown()
         {
             if (thisCursorInfo != null)
@@ -236,32 +186,6 @@ namespace TableTopSim.Client.SpecificGame
                     spriteSelectedChanged = true;
                 }
             }
-            //lock (selectedLockObject)
-            //{
-            //    if (selectedSpriteKey != null)
-            //    {
-            //        Sprite selectedSprite = refManager.GetSprite(selectedSpriteKey.Value);
-            //        selectedSprite.Scale /= 1.15f;
-
-            //        selectedSpritesContainer.RemoveChild(selectedSpriteKey.Value, refManager);
-            //        spriteContainer.AddChild(selectedSpriteKey.Value, refManager);
-            //        spriteContainer.MoveChildToFront(selectedSprite, refManager);
-            //        selectedSpriteKey = null;
-            //    }
-            //    else if (Manager.MouseOnSprite != null)
-            //    {
-            //        Sprite s = Manager.MouseOnSprite;
-            //        selectedSpriteKey = refManager.GetAddress(s);
-            //        selectionOffset = MousePos - s.Position;
-
-            //        spriteContainer.RemoveChild(selectedSpriteKey.Value, refManager);
-            //        selectedSpritesContainer.AddChild(selectedSpriteKey.Value, refManager);
-            //        selectedSpritesContainer.MoveChildToFront(s, refManager);
-            //        s.Scale *= 1.15f;
-            //        //Manager.MoveChildToFront(s);
-            //        //s.Scale *= 1.1f;
-            //    }
-            //}
         }
         private void MouseUp() { }
         bool CanSelectSprite(int sprite)
@@ -280,6 +204,7 @@ namespace TableTopSim.Client.SpecificGame
         private void Update(TimeSpan elapsedTime)
         {
             //Debug.WriteLine($"Update {playerId}");
+            
             totalTime += elapsedTime;
 
             GameDataUpdate completeUpdate = null;
@@ -317,7 +242,7 @@ namespace TableTopSim.Client.SpecificGame
                 {
                     cursorSprites[pUpdate.SendingPlayer].SelectedSpriteId = pUpdate.SelectedSprite;
                 }
-                refManager.SpriteRefrences = GameSerialize.DeserializeEditGameData(refManager.SpriteRefrences, pUpdate.Data, null);
+                refManager.SpriteRefrences = GameSerialize.DeserializeEditGameData(refManager.SpriteRefrences, pUpdate.Data);
 
                 lastUpdate = pUpdate;
             }

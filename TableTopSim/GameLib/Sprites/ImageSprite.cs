@@ -35,8 +35,7 @@ namespace GameLib.Sprites
         public RectangleF? SourceRectangle { get => sourceRectangle; set { sourceRectangle = value; NotifyPropertyChanged(53); } }
         static ImageSprite()
         {
-            GameSerialize.AddType<ImageSprite>(GameSerialize.GenericSerializeFunc, GameSerialize.GenericDeserializeFunc, true, 
-                GameSerialize.GenericDeserializeEditFunc, GameSerialize.CustomGenericDeserializeFunc);
+            GameSerialize.AddType<ImageSprite>(GameSerialize.GenericSerializeFunc, GameSerialize.GenericDeserializeFunc, GameSerialize.CustomGenericDeserializeFunc);
         }
         public ImageSprite()
             :base(ObjectTypes.ImageSprite)
