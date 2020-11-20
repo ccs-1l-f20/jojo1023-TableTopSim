@@ -125,18 +125,22 @@ namespace TableTopSim.Client.SpecificGame
                 sendBytes.AddRange(BitConverter.GetBytes(roomId));
 
                 List<byte> specificSerializedData = GameSerialize.SpecificSerializeGameData(refManager.SpriteRefrences, changedProperties);
+                changedProperties.Clear();
                 sendBytes.AddRange(BitConverter.GetBytes(specificSerializedData.Count));
                 sendBytes.AddRange(specificSerializedData);
                 int? selectedSprite = null;
                 if(thisCursorInfo != null)
                 {
                     selectedSprite = thisCursorInfo.SelectedSpriteId;
+                    if(selectedSprite != null)
+                    {
+
+                    }
                 }
                 GameSerialize.SerializeNullableInt(selectedSprite, sendBytes);
 
                 _ = ws.SendMessageAsync(new ArraySegment<byte>(sendBytes.ToArray()));
             }
-            changedProperties.Clear();
         }
 
         bool ignorePropertyChanged = false;
@@ -196,6 +200,7 @@ namespace TableTopSim.Client.SpecificGame
         private void Update(TimeSpan elapsedTime)
         {
             //Debug.WriteLine($"Update {playerId}");
+            
             totalTime += elapsedTime;
 
             GameDataUpdate completeUpdate = null;

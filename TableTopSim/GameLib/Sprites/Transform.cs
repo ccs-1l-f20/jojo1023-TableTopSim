@@ -13,7 +13,9 @@ namespace GameLib.Sprites
         Vector2 position;
 
         [GameSerializableData(1)]
-        public Vector2 Position { get => position; set { position = value; NotifyPropertyChanged(1); } }
+        public Vector2 Position { get => position; set { 
+                position = value; 
+                NotifyPropertyChanged(1); } }
         public float X { get { return Position.X; } set { Position = new Vector2(value, Position.Y); } }
         public float Y { get { return Position.Y; } set { Position = new Vector2(Position.X, value); } }
 

@@ -101,6 +101,11 @@ namespace GameLib.Sprites
         {
             this.refManager = refManager;
             Transform.SetRefManager(refManager, this);
+
+            Transform.OnPropertyChanged -= Transform_OnPropertyChanged;
+            LayerDepth.OnLayersChanged -= LayerDepth_OnLayersChanged;
+            Transform.OnPropertyChanged += Transform_OnPropertyChanged;
+            LayerDepth.OnLayersChanged += LayerDepth_OnLayersChanged;
         }
 
         public async Task Draw(MyCanvas2DContext context, Dictionary<int, Matrix<float>> spriteMatries)
