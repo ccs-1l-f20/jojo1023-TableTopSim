@@ -31,6 +31,13 @@ namespace GameLib
                 node.SetValue(node.Key, value);
             }
         }
+        public void InsertTrie(PathTrie<T> other, bool overideIfDup)
+        {
+            foreach(var endN in other.endNodes)
+            {
+                Insert(endN.Key, endN.Value, overideIfDup);
+            }
+        }
         public void Insert(IEnumerable<int> key, T value, bool overideIfDup = false)
         {
             TrieNode<T> currentNode = root;

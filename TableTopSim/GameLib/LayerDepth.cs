@@ -13,16 +13,13 @@ namespace GameLib
 
         const ushort layersDataId = 0;
         public event Action<LayerDepth, ushort> OnLayersChanged;
+        public int Count => layers.Count;
+        public float this[int i] { get => layers[i]; set { layers[i] = value; OnLayersChanged?.Invoke(this, layersDataId); } }
 
-        BindingList<float> layers;
+        List<float> layers;
         [GameSerializableData(layersDataId)]
-        public BindingList<float> Layers { get => layers; set { layers = value; OnLayersChanged?.Invoke(this, layersDataId); } }
+        public List<float> Layers { get => layers; internal set { layers = value; OnLayersChanged?.Invoke(this, layersDataId); } }
 
-        public float this[int index]
-        {
-            get => Layers[index];
-            set { Layers[index] = value; }
-        }
 
         static LayerDepth()
         {
@@ -30,39 +27,47 @@ namespace GameLib
         }
         public LayerDepth()
         {
-            layers = new BindingList<float>();
-            layers.AddingNew += Layers_AddingNew;
-            layers.ListChanged += Layers_ListChanged;
+            layers = new List<float>();
         }
         public LayerDepth(float layer)
         {
-            layers = new BindingList<float>();
+            layers = new List<float>();
             layers.Add(layer);
-            layers.AddingNew += Layers_AddingNew;
-            layers.ListChanged += Layers_ListChanged;
         }
         public LayerDepth(IList<float> layerList)
         {
-            layers = new BindingList<float>(layerList);
-            layers.AddingNew += Layers_AddingNew;
-            layers.ListChanged += Layers_ListChanged;
+            layers = new List<float>(layerList);
         }
+        public void Add(float layer)
+        {
+            layers.Add(layer);
+            OnLayersChanged?.Invoke(this, layersDataId);
+        }
+        public void AddAtStart(float layer)
+        {
+            layers.Insert(0, layer);
+            OnLayersChanged?.Invoke(this, layersDataId);
+        }
+
+        public void RemoveAt(int index)
+        {
+            layers.RemoveAt(index);
+            OnLayersChanged?.Invoke(this, layersDataId);
+        }
+
         public void AddTo(LayerDepth other)
         {
             for (int i = 0; i < other.layers.Count; i++)
             {
                 layers.Add(other.layers[i]);
             }
+            OnLayersChanged?.Invoke(this, layersDataId);
         }
         private void Layers_ListChanged(object sender, ListChangedEventArgs e)
         {
             OnLayersChanged?.Invoke(this, layersDataId);
         }
 
-        private void Layers_AddingNew(object sender, AddingNewEventArgs e)
-        {
-            OnLayersChanged?.Invoke(this, layersDataId);
-        }
 
         public int CompareTo(LayerDepth other)
         {

@@ -6,6 +6,7 @@ using MyCanvasLib;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Numerics;
 using System.Threading;
@@ -16,12 +17,12 @@ namespace GameLib
     public class GameManager
     {
         public Vector2 MousePos { get; private set; }
-        public event Action OnMouseUp;
-        public event Action OnMouseDown;
-        public event Action OnMouseMove;
+        //public event Action OnMouseUp;
+        //public event Action OnMouseDown;
+        //public event Action OnMouseMove;
         public event Action<KeyInfo> OnKeyUp;
         public event Action<KeyInfo> OnKeyDown;
-        public event Action<TimeSpan> OnUpdate;
+        public event Action<TimeSpan, MouseState, MouseState> OnUpdate;
         public Color BackColor { get; set; } = new Color(255, 0, 0);
         public List<int> Sprites { get; private set; }
         Size size;
@@ -29,8 +30,9 @@ namespace GameLib
         public long Height => size.Height;
         //GameProgram gameProgram;
         public MouseState MouseState { get; private set; }
+        public MouseState LastMouseState { get; private set; } = MouseState.Hover;
         public KeyboardState Keyboard { get; }
-        public Sprite MouseOnSprite { get; private set; }
+        public int? MouseOnSprite { get; private set; }
         public SpriteRefrenceManager SpriteRefrenceManager;
 
         Random random = new Random();
@@ -45,9 +47,11 @@ namespace GameLib
             MouseState = MouseState.Hover;
             //gameProgram = new GameProgram(this);
         }
-        public async Task Update(MyCanvas2DContext context, TimeSpan elapsedTime, CancellationToken ct)
+        public async Task Update(MyCanvas2DContext context, TimeSpan elapsedTime, CancellationToken ct, MouseState ms, Vector2 mousePos)
         {
-            OnUpdate?.Invoke(elapsedTime);
+            MousePos = mousePos;
+            MouseState = ms;
+            OnUpdate?.Invoke(elapsedTime, ms, LastMouseState);
 
             Dictionary<int, Matrix<float>> spriteMatries = new Dictionary<int, Matrix<float>>();
             Dictionary<int, LayerDepth> spriteLayerDepths = new Dictionary<int, LayerDepth>();
@@ -55,68 +59,68 @@ namespace GameLib
             bool reSort = false;
             bool mouseBlocked = false;
             MouseOnSprite = null;
-            try
+            for (int i = 0; i < Sprites.Count; i++)
             {
-                for (int i = 0; i < Sprites.Count; i++)
+                var ad = Sprites[i];
+                var sprite = SpriteRefrenceManager.GetSprite(ad);
+                LayerDepth currentLd = sprite.GetGlobalLayerDepth();
+                spriteLayerDepths.Add(ad, currentLd);
+                if (!reSort && lastLd != null && currentLd < lastLd)
                 {
-                    var ad = Sprites[i];
-                    var sprite = SpriteRefrenceManager.GetSprite(ad);
-                    if (sprite.Update(MousePos, MouseState, mouseBlocked, elapsedTime, spriteMatries))
-                    {
-                        if (!mouseBlocked)
-                        {
-                            MouseOnSprite = sprite;
-                            mouseBlocked = true;
-                        }
-                    }
-                    LayerDepth currentLd = sprite.GetGlobalLayerDepth();
-                    var test = currentLd.Layers.ToArray();
-                    spriteLayerDepths.Add(ad, currentLd);
-                    if (!reSort && lastLd != null && currentLd < lastLd)
-                    {
-                        reSort = true;
-                    }
-                    lastLd = currentLd;
+                    reSort = true;
                 }
+                lastLd = currentLd;
             }
-            catch(Exception e)
-            {
-                string st = e.StackTrace;
-            }
+
             if (reSort)
             {
                 Sprites = Sprites.OrderBy(s => spriteLayerDepths[s]).ToList();
             }
+            for (int i = 0; i < Sprites.Count; i++)
+            {
+                var ad = Sprites[i];
+                var sprite = SpriteRefrenceManager.GetSprite(ad);
+                if (sprite.Update(MousePos, MouseState, mouseBlocked, elapsedTime, spriteMatries))
+                {
+                    if (!mouseBlocked)
+                    {
+                        MouseOnSprite = ad;
+                        mouseBlocked = true;
+                    }
+                }
+            }
+
 
             await context.BeginBatchAsync();
             await context.SetFillStyleAsync(BackColor.ToString());
             await context.FillRectAsync(0, 0, Width, Height);
-            for(int i = Sprites.Count - 1; i >= 0; i--)
+            for (int i = Sprites.Count - 1; i >= 0; i--)
             {
                 var sprite = SpriteRefrenceManager.GetSprite(Sprites[i]);
                 await sprite.Draw(context, spriteMatries);
             }
             await context.EndBatchAsync();
+            LastMouseState = ms;
         }
 
 
-        public void MouseUp()
-        {
-            MouseState = MouseState.Hover;
-            OnMouseUp?.Invoke();
-        }
+        //public void MouseUp()
+        //{
+        //    MouseState = MouseState.Hover;
+        //    OnMouseUp?.Invoke();
+        //}
 
-        public void MouseDown()
-        {
-            MouseState = MouseState.Down;
-            OnMouseDown?.Invoke();
-        }
+        //public void MouseDown()
+        //{
+        //    MouseState = MouseState.Down;
+        //    OnMouseDown?.Invoke();
+        //}
 
-        public void MouseMove(Vector2 mousePos)
-        {
-            MousePos = mousePos;
-            OnMouseMove?.Invoke();
-        }
+        //public void MouseMove(Vector2 mousePos)
+        //{
+        //    MousePos = mousePos;
+        //    OnMouseMove?.Invoke();
+        //}
 
         public void KeyUp(KeyboardEventArgs args)
         {

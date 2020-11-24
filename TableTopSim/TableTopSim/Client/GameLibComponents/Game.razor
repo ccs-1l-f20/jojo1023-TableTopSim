@@ -35,6 +35,9 @@
     BoundingClientRect boundingClientRect;
     bool hasRendered = false;
     GameLib.Size canvasVisualSize;
+    Queue<MouseState> mouseStateQueue = new Queue<MouseState>();
+    MouseState lastMouseStateInserted;
+    object mouseLo = new object();
 
     protected override void OnInitialized()
     {
@@ -96,7 +99,21 @@
             if (ct.IsCancellationRequested) { break; }
             if (GameManager != null)
             {
-                await GameManager.Update(context, stopwatch.Elapsed, ct);
+                MouseState ms = MouseState.Hover;
+                Vector2 currentMousePos;
+                lock (mouseLo)
+                {
+                    currentMousePos = mousePos;
+                    if (mouseStateQueue.Count == 1)
+                    {
+                        ms = mouseStateQueue.Peek();
+                    }
+                    else if(mouseStateQueue.Count > 1)
+                    {
+                        ms = mouseStateQueue.Dequeue();
+                    }
+                }
+                await GameManager.Update(context, stopwatch.Elapsed, ct, ms, currentMousePos);
             }
 
             long previousElapsedMilli = stopwatch.ElapsedMilliseconds;
@@ -106,26 +123,44 @@
     }
     void MouseUp(MouseEventArgs args)
     {
+        //System.Diagnostics.Debug.WriteLine("Mouse Up");
         if (hasRendered)
         {
-            GameManager.MouseUp();
+            AddMouseState(MouseState.Hover);
+            //GameManager.MouseUp();
         }
     }
     void MouseDown(MouseEventArgs args)
     {
+        //System.Diagnostics.Debug.WriteLine("Mouse Down");
         if (hasRendered)
         {
-            GameManager.MouseDown();
+            AddMouseState(MouseState.Down);
+            //GameManager.MouseDown();
         }
     }
     void MouseMove(MouseEventArgs args)
     {
         if (hasRendered && boundingClientRect != null && GameManager != null)
         {
-            mousePos = new Vector2((float)(args.ClientX - boundingClientRect.Left), (float)(args.ClientY - boundingClientRect.Top));
+            Vector2 newMsPs = new Vector2((float)(args.ClientX - boundingClientRect.Left), (float)(args.ClientY - boundingClientRect.Top));
             float scaleVal = Size.Width / (float)canvasVisualSize.Width;
-            mousePos = new Vector2(scaleVal * mousePos.X, scaleVal * mousePos.Y);
-            GameManager.MouseMove(mousePos);
+            lock (mouseLo)
+            {
+                mousePos = new Vector2(scaleVal * newMsPs.X, scaleVal * newMsPs.Y);
+            }
+            //GameManager.MouseMove(mousePos);
+        }
+    }
+    void AddMouseState(MouseState mouseState)
+    {
+        lock (mouseLo)
+        {
+            if (mouseStateQueue.Count == 0 || lastMouseStateInserted != mouseState)
+            {
+                mouseStateQueue.Enqueue(mouseState);
+                lastMouseStateInserted = mouseState;
+            }
         }
     }
     protected override bool ShouldRender()
