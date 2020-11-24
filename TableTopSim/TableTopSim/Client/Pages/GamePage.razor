@@ -81,7 +81,6 @@
             return;
         }
         size = new GameLib.Size(gameInfo.Width, gameInfo.Height);
-        System.Diagnostics.Debug.WriteLine("Pre Get Images");
         _ = GetGameImages(thisPlayer.GameId);
         //var refManager = new SpriteRefrenceManager();
         //gameManager = new GameManager(size, refManager);
@@ -110,12 +109,7 @@
     async Task GetGameImages(int gameId)
     {
         imageDtos = await ReTryer.Try(300, 3, async () => await GameDL.GetGameImages(Http, thisPlayer.GameId));
-        System.Diagnostics.Debug.WriteLine("Post Get Images");
-        if (imageDtos == null)
-        {
-            GlobalData.ShowMessage($"Can't Load Images");
-        }
-        else
+        if (imageDtos != null)
         {
             imageElementRefs.Clear();
             foreach (var id in imageDtos.Keys)

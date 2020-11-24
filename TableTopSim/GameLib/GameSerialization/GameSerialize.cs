@@ -254,6 +254,7 @@ namespace GameLib.GameSerialization
         {
             IDictionary data = (IDictionary)t.GetConstructor(new Type[] { }).Invoke(new object[] { });
             int length = BitConverter.ToInt32(bytes.Array, bytes.Offset);
+            
             bytes.Offset += 4;
             int startOffset = bytes.Offset;
             Type genericKeyType = t.GenericTypeArguments[0];
@@ -427,15 +428,15 @@ namespace GameLib.GameSerialization
                 throw new NullReferenceException($"Cant Find Serialize For Type: {typeName}");
             }
         }
-        public static T DeserializeEditGameData<T>(T data, byte[] bytes)
+        public static T DeserializeEditGameData<T>(T data, byte[] bytes, PathTrie<object> pathsToIgnore = null, PathTrie<object> deserializedPaths = null)
         {
-            return (T)PvtDeserializeEditGameData(data, new ArrayWithOffset<byte>(bytes));
+            return (T)PvtDeserializeEditGameData(data, new ArrayWithOffset<byte>(bytes), pathsToIgnore, deserializedPaths);
         }
-        public static T DeserializeEditGameData<T>(T data, ArrayWithOffset<byte> bytes)
+        public static T DeserializeEditGameData<T>(T data, ArrayWithOffset<byte> bytes, PathTrie<object> pathsToIgnore = null, PathTrie<object> deserializedPaths = null)
         {
-            return (T)PvtDeserializeEditGameData(data, bytes);
+            return (T)PvtDeserializeEditGameData(data, bytes, pathsToIgnore, deserializedPaths);
         }
-        static object PvtDeserializeEditGameData(object dataObject, ArrayWithOffset<byte> bytes)
+        static object PvtDeserializeEditGameData(object dataObject, ArrayWithOffset<byte> bytes, PathTrie<object> pathsToIgnore, PathTrie<object> paths)
         {
             int dataCount = BitConverter.ToInt32(bytes.Array, bytes.Offset);
             bytes.Offset += 4;
@@ -451,46 +452,18 @@ namespace GameLib.GameSerialization
                 }
                 ushort dataLength = BitConverter.ToUInt16(bytes.Array, bytes.Offset);
                 bytes.Offset += 2;
+                if (pathsToIgnore == null || !pathsToIgnore.ContainsKey(path))
+                {
+                    if (paths != null)
+                    {
+                        paths.Insert(path, null, true);
+                    }
 
-                dataObject = PvtDeserializeEditSpecifcData(dataObject, path, bytes.Slice(0, dataLength));
+                    dataObject = PvtDeserializeEditSpecifcData(dataObject, path, bytes.Slice(0, dataLength));
+                }
                 bytes.Offset += dataLength;
             }
             return dataObject;
-            //Type t = dataObject.GetType();
-            //TypeSerializableInfo info = null;
-            //if (t.IsEnum)
-            //{
-            //    t = Enum.GetUnderlyingType(t);
-            //}
-            //else if (t.GetInterface("IList") != null)
-            //{
-            //    return DeserializeEditList((IList)dataObject, bytes, dataToIgnore);
-            //}
-            //else if (t.GetInterface("IDictionary") != null)
-            //{
-            //    return DeserializeEditDict((IDictionary)dataObject, bytes, dataToIgnore);
-            //}
-
-            //if (typeProperties.ContainsKey(t))
-            //{
-            //    info = typeProperties[t];
-            //}
-            //if (typeSerializeFuncs.ContainsKey(t))
-            //{
-            //    var sereializeInfo = typeSerializeFuncs[t];
-            //    if (sereializeInfo.HasDeserializeEdit)
-            //    {
-            //        return sereializeInfo.DeserializeEdit(dataObject, info, bytes, dataToIgnore);
-            //    }
-            //    else
-            //    {
-            //        return sereializeInfo.Deserialize(info, bytes);
-            //    }
-            //}
-            //else
-            //{
-            //    throw new NullReferenceException();
-            //}
         }
 
         static object PvtDeserializeEditSpecifcData(object dataObject, List<int> path, ArrayWithOffset<byte> dataBytes)

@@ -29,7 +29,7 @@ namespace CreateJsonGamesProj
             Console.WriteLine("Enter Game Json File Name");
             string gameName = Console.ReadLine();
 
-            if (true)
+            if (false)
             {
                 Basic(gameName);
                 return;
