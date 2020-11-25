@@ -8,6 +8,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Data.Common;
 using System.Data.SqlClient;
 using System.Diagnostics;
 using System.Linq;
@@ -66,7 +67,7 @@ namespace TableTopSim.Server
             PlayerWebSockets.Add(initPlayerId, initPlayerWs);
             playerData.Add(initPlayerId, new PlayerUpdateRoomData());
         }
-        public async Task InitalizeRoom(SqlConnection sqlConnection)
+        public async Task InitalizeRoom(DbConnection sqlConnection)
         {
             GameDataDto gameData = await ReTryer.Try(100, 5, async () => await GameController.GetGame(sqlConnection, GameId));
             if (gameData == null)

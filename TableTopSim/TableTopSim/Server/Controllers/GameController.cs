@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Data.Common;
 using System.Data.SqlClient;
 using System.Linq;
 using System.Threading.Tasks;
@@ -15,8 +16,8 @@ namespace TableTopSim.Server.Controllers
     [ApiController]
     public class GameController : ControllerBase
     {
-        SqlConnection connection;
-        public GameController(SqlConnection connection)
+        DbConnection connection;
+        public GameController(DbConnection connection)
         {
             this.connection = connection;
         }
@@ -24,7 +25,7 @@ namespace TableTopSim.Server.Controllers
         [HttpPost("AddGame")]
         public async Task<int?> AddGame([FromBody] GameDataDto gameData)
         {
-            SqlCommand command = new SqlCommand("uspAddGame", connection) { CommandType = CommandType.StoredProcedure };
+            DbCommand command = connection.GetDbCommand("uspAddGame");
             command.Parameters.AddWithValue("@Name", gameData.Name);
             command.Parameters.AddWithValue("@Width", gameData.Width);
             command.Parameters.AddWithValue("@Height", gameData.Height);
@@ -61,15 +62,15 @@ namespace TableTopSim.Server.Controllers
             connection.Close();
             return Ok();
         }
-        static async Task DeleteGameImages(int gameId, SqlConnection connection)
+        static async Task DeleteGameImages(int gameId, DbConnection connection)
         {
-            SqlCommand command = new SqlCommand("uspDeleteGameImages", connection) { CommandType = CommandType.StoredProcedure };
+            DbCommand command = connection.GetDbCommand("uspDeleteGameImages");
             command.Parameters.AddWithValue("@GameId", gameId);
             await command.ExecuteNonQueryAsync();
         }
-        static async Task<bool> AddGameImage(int gameId, int inGameImageId, ImageDto image, SqlConnection connection)
+        static async Task<bool> AddGameImage(int gameId, int inGameImageId, ImageDto image, DbConnection connection)
         {
-            SqlCommand command = new SqlCommand("uspAddGameImage", connection) { CommandType = CommandType.StoredProcedure };
+            DbCommand command = connection.GetDbCommand("uspAddGameImage");
             command.Parameters.AddWithValue("@GameId", gameId);
             command.Parameters.AddWithValue("@InGameImageId", inGameImageId);
             command.Parameters.AddWithValue("@Image", image.Image);
@@ -80,7 +81,7 @@ namespace TableTopSim.Server.Controllers
         [HttpPost("DeleteGame/{gameId}")]
         public async Task<IActionResult> DeleteGame(int gameId)
         {
-            SqlCommand command = new SqlCommand("uspDeleteGame", connection) { CommandType = CommandType.StoredProcedure };
+            DbCommand command = connection.GetDbCommand("uspDeleteGame");
             command.Parameters.AddWithValue("@GameId", gameId);
 
             if (!(await connection.TryOpenAsync())) { return BadRequest(); }
@@ -92,7 +93,7 @@ namespace TableTopSim.Server.Controllers
         [HttpGet("GetGames")]
         public async Task<string> GetGames()
         {
-            SqlCommand command = new SqlCommand("uspGetGames", connection) { CommandType = CommandType.StoredProcedure };
+            DbCommand command = connection.GetDbCommand("uspGetGames");
             if (!(await connection.TryOpenAsync())) { return null; }
             Dictionary<int, GameDataDto> games = new Dictionary<int, GameDataDto>();
 
@@ -111,9 +112,9 @@ namespace TableTopSim.Server.Controllers
             return await GetGame(connection, gameId);
         }
 
-        public static async Task<GameDataDto> GetGame(SqlConnection connection, int gameId)
+        public static async Task<GameDataDto> GetGame(DbConnection connection, int gameId)
         {
-            SqlCommand command = new SqlCommand("uspGetGame", connection) { CommandType = CommandType.StoredProcedure };
+            DbCommand command = connection.GetDbCommand("uspGetGame");
             command.Parameters.AddWithValue("@GameId", gameId);
 
             if (!(await connection.TryOpenAsync())) { return null; }
@@ -129,7 +130,7 @@ namespace TableTopSim.Server.Controllers
         [HttpGet("GetGameImages/{gameId}")]
         public async Task<string> GetGameImages(int gameId)
         {
-            SqlCommand command = new SqlCommand("uspGetGameImages", connection) { CommandType = CommandType.StoredProcedure };
+            DbCommand command = connection.GetDbCommand("uspGetGameImages");
             command.Parameters.AddWithValue("@GameId", gameId);
 
             if (!(await connection.TryOpenAsync())) { return null; }

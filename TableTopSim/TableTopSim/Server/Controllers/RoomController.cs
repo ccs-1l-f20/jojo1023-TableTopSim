@@ -1,11 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Data.Common;
 using System.Data.SqlClient;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Npgsql;
 using TableTopSim.Shared;
 
 namespace TableTopSim.Server.Controllers
@@ -14,8 +16,8 @@ namespace TableTopSim.Server.Controllers
     [ApiController]
     public class RoomController : ControllerBase
     {
-        SqlConnection connection;
-        public RoomController(SqlConnection connection)
+        DbConnection connection;
+        public RoomController(DbConnection connection)
         {
             this.connection = connection;
         }
@@ -25,9 +27,9 @@ namespace TableTopSim.Server.Controllers
         //{
         //    return await CreatePlayerAndRoom(connection, playerName);
         //}
-        public static async Task<PlayerAndRoomId> CreatePlayerAndRoom(SqlConnection connection, int gameId, string playerName)
+        public static async Task<PlayerAndRoomId> CreatePlayerAndRoom(DbConnection connection, int gameId, string playerName)
         {
-            SqlCommand command = new SqlCommand("uspCreatePlayerAndRoom", connection) { CommandType = CommandType.StoredProcedure };
+            DbCommand command = connection.GetDbCommand("uspCreatePlayerAndRoom");
             command.Parameters.AddWithValue("@GameId", gameId);
             command.Parameters.AddWithValue("@PlayerName", playerName);
 
@@ -50,9 +52,9 @@ namespace TableTopSim.Server.Controllers
         //{
         //    return await CreatePlayerInRoom(connection, playerName, roomId);
         //}
-        public static async Task<(int? playerId, bool noRoom)> CreatePlayerInRoom(SqlConnection connection, string playerName, int roomId)
+        public static async Task<(int? playerId, bool noRoom)> CreatePlayerInRoom(DbConnection connection, string playerName, int roomId)
         {
-            SqlCommand command = new SqlCommand("uspCreatePlayerInRoom", connection) { CommandType = CommandType.StoredProcedure };
+            DbCommand command = connection.GetDbCommand("uspCreatePlayerInRoom");
             command.Parameters.AddWithValue("@PlayerName", playerName);
             command.Parameters.AddWithValue("@RoomId", roomId);
 
@@ -78,7 +80,7 @@ namespace TableTopSim.Server.Controllers
         [HttpGet("GetPlayers/{roomId}")]
         public async Task<Player[]> GetPlayers(int roomId)
         {
-            SqlCommand command = new SqlCommand("uspGetPlayers", connection) { CommandType = CommandType.StoredProcedure };
+            DbCommand command = connection.GetDbCommand("uspGetPlayers");
             command.Parameters.AddWithValue("@RoomId", roomId);
 
             if (!(await connection.TryOpenAsync())) { return null; }
@@ -101,9 +103,9 @@ namespace TableTopSim.Server.Controllers
         {
             return await GetPlayerRoom(connection, playerId);
         }
-        public static async Task<Player> GetPlayerRoom(SqlConnection connection, int playerId)
+        public static async Task<Player> GetPlayerRoom(DbConnection connection, int playerId)
         {
-            SqlCommand command = new SqlCommand("uspGetPlayerRoom", connection) { CommandType = CommandType.StoredProcedure };
+            DbCommand command = connection.GetDbCommand("uspGetPlayerRoom");
             command.Parameters.AddWithValue("@PlayerId", playerId);
 
             if (!(await connection.TryOpenAsync())) { return null; }
@@ -138,9 +140,9 @@ namespace TableTopSim.Server.Controllers
                 return BadRequest();
             }
         }
-        public static async Task<bool> StartGame(SqlConnection connection, int roomId, int playerId)
+        public static async Task<bool> StartGame(DbConnection connection, int roomId, int playerId)
         {
-            SqlCommand command = new SqlCommand("uspStartGame", connection) { CommandType = CommandType.StoredProcedure };
+            DbCommand command = connection.GetDbCommand("uspStartGame");
             command.Parameters.AddWithValue("@RoomId", roomId);
             command.Parameters.AddWithValue("@PlayerId", playerId);
 
