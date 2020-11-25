@@ -17,6 +17,8 @@ using System.Collections.Generic;
 using GameLib.Sprites;
 using System.Numerics;
 using GameLib.GameSerialization;
+using Npgsql;
+using System.Data.Common;
 
 namespace TableTopSim.Server
 {
@@ -28,13 +30,14 @@ namespace TableTopSim.Server
         }
 
         public IConfiguration Configuration { get; }
-        SqlConnection sqlConnection;
+        DbConnection sqlConnection;
         SqlConnectionStringBuilder connectionStringBuilder;
 
         // This method gets called by the runtime. Use this method to add services to the container.
         // For more information on how to configure your application, visit https://go.microsoft.com/fwlink/?LinkID=398940
         public void ConfigureServices(IServiceCollection services)
         {
+            //NpgsqlConnection npgsqlConnection = new NpgsqlConnection();
 
             connectionStringBuilder = new SqlConnectionStringBuilder();
             connectionStringBuilder.IntegratedSecurity = true;
@@ -44,7 +47,7 @@ namespace TableTopSim.Server
 
             services.AddControllersWithViews();
             services.AddRazorPages();
-            services.AddScoped<SqlConnection>(sp =>
+            services.AddScoped<DbConnection>(sp =>
             {
                 return new SqlConnection(connectionStringBuilder.ConnectionString);
             });

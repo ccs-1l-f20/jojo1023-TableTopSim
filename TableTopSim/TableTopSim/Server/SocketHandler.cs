@@ -4,6 +4,7 @@ using GameLib.Sprites;
 using Microsoft.AspNetCore.Http;
 using System;
 using System.Collections.Generic;
+using System.Data.Common;
 using System.Data.SqlClient;
 using System.Linq;
 using System.Net.WebSockets;
@@ -22,8 +23,8 @@ namespace TableTopSim.Server
         static Dictionary<MessageType, Func<WebSocket, long, ArraySegment<byte>, Task>> MessageFunctions = null;
         public Dictionary<int, (WebSocket ws, int? room)> PlayerWebSockets { get; set; }
         public Dictionary<int, GameRoom> GameRooms { get; set; }
-        SqlConnection sqlConnection;
-        private SocketHandler(SqlConnection sqlConnection)
+        DbConnection sqlConnection;
+        private SocketHandler(DbConnection sqlConnection)
         {
             this.sqlConnection = sqlConnection;
             PlayerWebSockets = new Dictionary<int, (WebSocket ws, int? room)>();
@@ -49,7 +50,7 @@ namespace TableTopSim.Server
             //newDict = GameSerialize.DeserializeEditGameData(newDict, b.ToArray());
         }
 
-        public static SocketHandler Get(SqlConnection sqlConnection)
+        public static SocketHandler Get(DbConnection sqlConnection)
         {
             if (instance == null)
             {
