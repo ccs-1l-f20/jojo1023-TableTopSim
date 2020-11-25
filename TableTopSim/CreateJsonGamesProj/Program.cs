@@ -73,7 +73,7 @@ namespace CreateJsonGamesProj
             {
                 int pawnBPath = PieceHash(ChessPiece.Pawn, false);
                 int pawnWPath = PieceHash(ChessPiece.Pawn, true);
-                sprites.Add(spiteId,  new ImageSprite(null, GetCenterCheckerPos(i, 1), pawnBPath, checkerSize, checkerSize / 2, 0));
+                sprites.Add(spiteId,  new ImageSprite(null, GetCenterCheckerPos(i, 1), pawnBPath, checkerSize, checkerSize / 2, 180));
                 spiteId++;
                 sprites.Add(spiteId, new ImageSprite(null, GetCenterCheckerPos(i, 6), pawnWPath, checkerSize, checkerSize / 2));
                 spiteId++;
@@ -85,7 +85,7 @@ namespace CreateJsonGamesProj
                 ChessPiece cp = cpOrder[i];
                 int bPath = PieceHash(cp, false);
                 int wPath = PieceHash(cp, true);
-                sprites.Add(spiteId, new ImageSprite(null, GetCenterCheckerPos(i, 0), bPath, checkerSize, checkerSize / 2, 0));
+                sprites.Add(spiteId, new ImageSprite(null, GetCenterCheckerPos(i, 0), bPath, checkerSize, checkerSize / 2, 180));
                 spiteId++;
                 sprites.Add(spiteId, new ImageSprite(null, GetCenterCheckerPos(i, 7), wPath, checkerSize, checkerSize / 2));
                 spiteId++;

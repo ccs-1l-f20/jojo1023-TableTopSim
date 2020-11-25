@@ -17,6 +17,7 @@ namespace GameLib
     public class GameManager
     {
         public Vector2 MousePos { get; private set; }
+        public Vector2 RawMousePos { get; private set; }
         //public event Action OnMouseUp;
         //public event Action OnMouseDown;
         //public event Action OnMouseMove;
@@ -35,21 +36,28 @@ namespace GameLib
         public int? MouseOnSprite { get; private set; }
         public SpriteRefrenceManager SpriteRefrenceManager;
 
+        public Transform BoardTransform;
         Random random = new Random();
-        public GameManager(Size size, SpriteRefrenceManager spriteRefrenceManager)
+        public GameManager(Size size, SpriteRefrenceManager spriteRefrenceManager, int playerId)
         {
+            //Vector2 origin = new Vector2(size.Width / 2, size.Height / 2);
+            BoardTransform = new Transform(Vector2.Zero,Vector2.One, 0, null);
+            //var rotOrigin = Transform.TransformPoint((BoardTransform.GetMatrix()), origin);
+            //BoardTransform.Position = origin - rotOrigin;
+
             MouseOnSprite = null;
             Keyboard = new KeyboardState();
-            //GameSprite = new EmptySprite(Vector2.Zero, Vector2.One, 0, spriteRefrenceManager);
             Sprites = new List<int>();
             SpriteRefrenceManager = spriteRefrenceManager;
             this.size = size;
             MouseState = MouseState.Hover;
-            //gameProgram = new GameProgram(this);
         }
         public async Task Update(MyCanvas2DContext context, TimeSpan elapsedTime, CancellationToken ct, MouseState ms, Vector2 mousePos)
         {
-            MousePos = mousePos;
+            RawMousePos = mousePos;
+            Matrix<float> boardTransform = BoardTransform.GetMatrix();
+            var invBoardTransform = Transform.InverseTransformMatrix(boardTransform);
+            MousePos = Transform.TransformPoint(invBoardTransform, mousePos);
             MouseState = ms;
             OnUpdate?.Invoke(elapsedTime, ms, LastMouseState);
 
@@ -93,14 +101,20 @@ namespace GameLib
 
             await context.BeginBatchAsync();
             await context.SetFillStyleAsync(BackColor.ToString());
+            await context.SaveAsync();
             await context.FillRectAsync(0, 0, Width, Height);
+            await context.TransformAsync(boardTransform[0, 0], boardTransform[1, 0], boardTransform[0, 1], boardTransform[1, 1], boardTransform[0, 2], boardTransform[1, 2]);
+
             for (int i = Sprites.Count - 1; i >= 0; i--)
             {
                 var sprite = SpriteRefrenceManager.GetSprite(Sprites[i]);
                 await sprite.Draw(context, spriteMatries);
             }
+
+            await context.RestoreAsync();
             await context.EndBatchAsync();
             LastMouseState = ms;
+            Keyboard.StateUpdate();
         }
 
 

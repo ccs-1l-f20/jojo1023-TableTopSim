@@ -39,7 +39,7 @@ namespace TableTopSim.Client.SpecificGame
             CursorInfo.Init();
             this.size = size;
             //Debug.WriteLine($"Pre Manager {playerId}");
-            Manager = new GameManager(size, new SpriteRefrenceManager(imageElementRefs, imageNotFound));
+            Manager = new GameManager(size, new SpriteRefrenceManager(imageElementRefs, imageNotFound), playerId);
             //Debug.WriteLine($"Post Manager {playerId}");
 
             this.ws = ws;
@@ -140,6 +140,95 @@ namespace TableTopSim.Client.SpecificGame
         private void OnKeyUp(KeyInfo keyInfo) { }
 
         private void OnKeyDown(KeyInfo keyInfo) { }
+
+        bool rotateMode = false;
+        float rotateStart = 0;
+        void KeyUpdate(KeyboardState keyboard)
+        {
+            bool rotate90 = false;
+            bool mouseRotate = false;
+            bool lastRotateMode = rotateMode;
+            rotateMode = false;
+            if (keyboard.ContainsKeyCode("KeyR"))
+            {
+                KeyInfo rInfo = keyboard["KeyR"];
+                if(rInfo.Repeat && rInfo.Down)
+                {
+                    mouseRotate = true;
+                }
+                else if(!rInfo.Down && rInfo.LastDown && !rInfo.LastRepeat)
+                {
+                    rotate90 = true;
+                }
+            }
+            if (rotate90 || mouseRotate)
+            {
+                bool hasRot = false;
+                float currentRot = 0;
+                Vector2 currentPos = Vector2.Zero;
+                Sprite selectedSprite = null;
+                Vector2 mousePos = Manager.MousePos;
+                if (keyboard.ShiftKey)
+                {
+                    hasRot = true;
+                    currentRot = Manager.BoardTransform.Rotation;
+                    currentPos = new Vector2(Manager.Width / 2, Manager.Height / 2);
+                    mousePos = Manager.RawMousePos;
+                }
+                else if (thisCursorInfo != null && thisCursorInfo.SelectedSpriteId != null)
+                {
+                    hasRot = true;
+                    selectedSprite = refManager.GetSprite(thisCursorInfo.SelectedSpriteId.Value);
+                    currentRot = selectedSprite.Transform.Rotation;
+                    currentPos = selectedSprite.Transform.GetGlobalPosition();
+                }
+
+                if (hasRot)
+                {
+                    if (rotate90)
+                    {
+                        float posRot = Extensions.GetPositiveRotation(currentRot);
+                        float mod90 = posRot % 90;
+                        if (keyboard.AltKey)
+                        {
+                            currentRot += 90 - mod90;
+                        }
+                        else
+                        {
+                            currentRot -= mod90;
+                            currentRot -= mod90 == 0 ? 90 : 0;
+                        }
+                    }
+                    else
+                    {
+                        rotateMode = true;
+
+                        Vector2 relativePoint = mousePos - currentPos;
+                        float relativeRot = Extensions.RadiansToDegrees((float)Math.Atan2(relativePoint.X, relativePoint.Y));
+                        if (lastRotateMode)
+                        {
+                            currentRot = relativeRot + rotateStart;
+                        }
+                        else
+                        {
+                            rotateStart = -relativeRot;
+                        }
+                    }
+
+                    if (keyboard.ShiftKey)
+                    {
+                        Manager.BoardTransform.Rotation = currentRot;
+                        Manager.BoardTransform.Position = Vector2.Zero;
+                        var rotOrigin = Transform.TransformPoint((Manager.BoardTransform.GetMatrix()), currentPos);
+                        Manager.BoardTransform.Position = currentPos - rotOrigin;
+                    }
+                    else
+                    {
+                        selectedSprite.Transform.Rotation = currentRot;
+                    }
+                }
+            }
+        }
         private void MouseDown()
         {
             if (thisCursorInfo != null)
@@ -219,11 +308,6 @@ namespace TableTopSim.Client.SpecificGame
                         refManager.SpriteRefrences.Add(key, sprite);
                     }
                 }
-
-                //if (specificSerializedData != null)
-                //{
-                //    SendChangedWs(specificSerializedData);
-                //}
                 cursorSprites = GameSerialize.DeserializeGameData<Dictionary<int, CursorInfo>>(gameDataUpdate.CursorSprites);
 
 
@@ -238,24 +322,15 @@ namespace TableTopSim.Client.SpecificGame
                     sprite.OnPropertyChanged -= OnPropertyChanged;
                     sprite.OnPropertyChanged += OnPropertyChanged;
                 }
-
-                //var prevCurosrInfo = thisCursorInfo;
-                //if(prevCurosrInfo != null && prevCurosrInfo.SelectedSpriteId != null && cursorSprites.ContainsKey(playerId) && cursorSprites[playerId].CursorSpriteId == prevCurosrInfo.CursorSpriteId)
-                //{
-                //    if (CanSelectSprite(prevCurosrInfo.SelectedSpriteId.Value) && refManager.ContainsAddress(prevCurosrInfo.SelectedSpriteId.Value))
-                //    {
-                //        cursorSprites[prevCurosrInfo.CursorSpriteId].SelectedSpriteId = prevCurosrInfo.SelectedSpriteId;
-                //        refManager.GetSprite(prevCurosrInfo.SelectedSpriteId.Value).Parent = prevCurosrInfo.CursorSpriteId;
-                //    }
-                //}
             }
 
+            ignorePropertyChanged = false;
 
             if (cursorSprites != null && cursorSprites.ContainsKey(playerId))
             {
                 var cursorInfo = cursorSprites[playerId];
                 int? prevSelected = null;
-                if (thisCursorInfo != null)
+                if (gameDataUpdate != null && thisCursorInfo != null && !gameDataUpdate.DiscardChanges)
                 {
                     prevSelected = thisCursorInfo.SelectedSpriteId;
                 }
@@ -265,9 +340,33 @@ namespace TableTopSim.Client.SpecificGame
                 {
                     thisCursorInfo.SelectedSpriteId = null;
                 }
-                else if (prevSelected != null && refManager.ContainsAddress(prevSelected.Value) && thisCursorInfo.SelectedSpriteId != prevSelected.Value)
+                else if(prevSelected != null && refManager.ContainsAddress(prevSelected.Value))
                 {
-                    DropSelected(prevSelected.Value);
+                    if (thisCursorInfo.SelectedSpriteId == null) 
+                    {
+                        if (CanSelectSprite(prevSelected.Value))
+                        {
+                            thisCursorInfo.SelectedSpriteId = prevSelected.Value;
+                        }
+                        else
+                        {
+                            Debug.WriteLine($"Can't Select: {prevSelected.Value}");
+                            DropSelected(prevSelected.Value);
+                        }
+                    }
+                    else if(thisCursorInfo.SelectedSpriteId != prevSelected.Value)
+                    {
+                        Debug.WriteLine($"Drop PS:{prevSelected.Value}, Selected:{thisCursorInfo.SelectedSpriteId}");
+                        DropSelected(prevSelected.Value);
+                    }
+                }
+                else if(thisCursorInfo.SelectedSpriteId != null)
+                {
+                    Sprite s = refManager.GetSprite(thisCursorInfo.SelectedSpriteId.Value);
+                    if(s.Parent == null)
+                    {
+                        thisCursorInfo.SelectedSpriteId = null;
+                    }
                 }
             }
             else
@@ -275,24 +374,24 @@ namespace TableTopSim.Client.SpecificGame
                 ignorePropertyChanged = false;
                 if (thisCursorInfo != null && thisCursorInfo.SelectedSpriteId != null && refManager.ContainsAddress(thisCursorInfo.SelectedSpriteId.Value))
                 {
+                    Debug.WriteLine("Drop No Curosr");
                     DropSelected(thisCursorInfo.SelectedSpriteId.Value);
                 }
                 thisCursorInfo = null;
                 thisCursor = null;
             }
 
-            ignorePropertyChanged = false;
 
             if (mouseState == MouseState.Down && lastMouseState == MouseState.Hover)
             {
-                Debug.WriteLine("Click");
+                //Debug.WriteLine("Click");
                 MouseDown();
             }
 
             if (thisCursor != null)
             {
                 Vector2 cursorPos = Manager.MousePos;
-                if (cursorPos != thisCursor.Transform.Position &&
+                if (cursorPos != thisCursor.Transform.Position && !rotateMode && 
                     cursorPos.X >= 0 && cursorPos.Y >= 0 && cursorPos.X < size.Width && cursorPos.Y < size.Height)
                 {
                     thisCursor.Transform.Position = cursorPos;
@@ -311,6 +410,7 @@ namespace TableTopSim.Client.SpecificGame
                     }
                     if (thisCursorInfo.SelectedSpriteId != null && queuedChange != thisCursorInfo.SelectedSpriteId.Value)
                     {
+                        Debug.WriteLine("Drop Cause Queued");
                         DropSelected(thisCursorInfo.SelectedSpriteId.Value);
                     }
 
@@ -331,6 +431,11 @@ namespace TableTopSim.Client.SpecificGame
                     queuedSelectedSprite = null;
                 }
             }
+
+            KeyUpdate(Manager.Keyboard);
+
+            
+
             if (gameDataUpdate != null)
             {
                 if (thisCursor != null)
