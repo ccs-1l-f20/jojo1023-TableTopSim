@@ -23,7 +23,7 @@ namespace TableTopSim.Server
 {
     class PlayerUpdateRoomData
     {
-        readonly int FullUpdateRate = 5;
+        readonly int FullUpdateRate = 10;
         //public object LockObject { get; set; }
         public PathTrie<object> UpdatePaths { get; set; }
         int pUpdateCounter = 0;
@@ -111,7 +111,7 @@ namespace TableTopSim.Server
             playerCursors = new Dictionary<int, CursorInfo>();
             foreach (var pId in PlayerWebSockets.Keys)
             {
-                RectSprite cursor = new RectSprite(refManager, new Vector2(0, 0), new Vector2(8, 8), new Color(200, 200, 200), Vector2.Zero, 0) { Selectable = false };
+                RectSprite cursor = new RectSprite(refManager, new Vector2(0, 0), new Vector2(8, 16), new Color(200, 200, 200), Vector2.Zero, 0) { Selectable = false };
                 cursor.Transform.Scale *= 1.15f;
                 int cAd = AddSprite(cursor);
                 cursor.LayerDepth[0] = -1;

@@ -15,7 +15,7 @@ namespace GameLib
 
         public KeyInfo this[string code]
         {
-            get { return keyInfos.ContainsKey(code) ? keyInfos[code] : new KeyInfo(code, "", false, false, false, false); }
+            get { return keyInfos[code]; }
         }
         public KeyboardState()
         {
@@ -24,7 +24,15 @@ namespace GameLib
             ShiftKey = false;
             CtrlKey = false;
         }
-
+        public void StateUpdate()
+        {
+            foreach(var k in keyInfos.Keys)
+            {
+                var v = keyInfos[k];
+                v.LastDown = v.Down;
+                v.LastRepeat = v.Repeat;
+            }
+        }
         public KeyInfo KeyDown(KeyboardEventArgs args)
         {
             AltKey = args.AltKey;
@@ -64,9 +72,12 @@ namespace GameLib
             }
             return keyInfo;
         }
-
+        public bool ContainsKeyCode(string code)
+        {
+            return keyInfos.ContainsKey(code);
+        }
     }
-    public struct KeyInfo
+    public class KeyInfo
     {
         public string Code { get; set; }
         public string Key { get; set; }
