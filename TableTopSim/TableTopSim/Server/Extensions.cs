@@ -33,17 +33,32 @@ namespace TableTopSim.Server
         }
         public static void AddWithValue(this DbParameterCollection dbParameterCollection, string parameterName, object value)
         {
-            dbParameterCollection.Add(new SqlParameter(parameterName, value));
+            if (dbParameterCollection is SqlParameterCollection)
+            {
+                dbParameterCollection.Add(new SqlParameter(parameterName, value));
+            }
+            else if (dbParameterCollection is NpgsqlParameterCollection)
+            {
+                if (parameterName.Length > 0 && parameterName[0] == '@')
+                {
+                    parameterName = parameterName.Substring(1);
+                }
+                dbParameterCollection.Add(new NpgsqlParameter(parameterName.ToLower(), value));
+            }
+            else
+            {
+                throw new NotImplementedException();
+            }
         }
         public static DbCommand GetDbCommand(this DbConnection connection, string cmdText)
         {
-            if(connection is SqlConnection)
+            if (connection is SqlConnection)
             {
                 return new SqlCommand(cmdText, (SqlConnection)connection) { CommandType = System.Data.CommandType.StoredProcedure };
             }
-            else if(connection is NpgsqlConnection)
+            else if (connection is NpgsqlConnection)
             {
-                return new NpgsqlCommand(cmdText, (NpgsqlConnection)connection) { CommandType = System.Data.CommandType.StoredProcedure };
+                return new NpgsqlCommand(cmdText.ToLower(), (NpgsqlConnection)connection) { CommandType = System.Data.CommandType.StoredProcedure };
             }
             else
             {

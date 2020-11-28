@@ -19,6 +19,7 @@ using System.Numerics;
 using GameLib.GameSerialization;
 using Npgsql;
 using System.Data.Common;
+using System.IO;
 
 namespace TableTopSim.Server
 {
@@ -31,25 +32,36 @@ namespace TableTopSim.Server
 
         public IConfiguration Configuration { get; }
         DbConnection sqlConnection;
-        SqlConnectionStringBuilder connectionStringBuilder;
-
+        bool isLocal = true;
         // This method gets called by the runtime. Use this method to add services to the container.
         // For more information on how to configure your application, visit https://go.microsoft.com/fwlink/?LinkID=398940
         public void ConfigureServices(IServiceCollection services)
         {
-            //NpgsqlConnection npgsqlConnection = new NpgsqlConnection();
 
-            connectionStringBuilder = new SqlConnectionStringBuilder();
-            connectionStringBuilder.IntegratedSecurity = true;
-            connectionStringBuilder.DataSource = @"(localdb)\MSSQLLocalDB";
-            connectionStringBuilder.InitialCatalog = "TableTopSimDB";
-            sqlConnection = new SqlConnection(connectionStringBuilder.ConnectionString);
+            //SqlConnectionStringBuilder connectionStringBuilder;
+            //connectionStringBuilder = new SqlConnectionStringBuilder();
+            //connectionStringBuilder.IntegratedSecurity = true;
+            //connectionStringBuilder.DataSource = @"(localdb)\MSSQLLocalDB";
+            //connectionStringBuilder.InitialCatalog = "TableTopSimDB";
+            //sqlConnection = new SqlConnection(connectionStringBuilder.ConnectionString);
+            string dbUrlVariableName = "DATABASE_URL";
+            if (isLocal)
+            {
+                var authInfo = File.ReadAllLines("auth.txt");
+                Environment.SetEnvironmentVariable(dbUrlVariableName, $"postgres://{authInfo[0]}:{authInfo[1]}@localhost:5432/TableTopSimDB");
+            }
 
+            string vble = Environment.GetEnvironmentVariable(dbUrlVariableName);
+            Uri dbUri = new Uri(Environment.GetEnvironmentVariable(dbUrlVariableName));
+            var splitUserInfo = dbUri.UserInfo.Split(':');
+            string npgsqlStr = $"Host={dbUri.Host};Username={splitUserInfo[0]};Password={splitUserInfo[1]};Database={dbUri.AbsolutePath.Substring(1)}";
+            sqlConnection = new NpgsqlConnection(npgsqlStr);
             services.AddControllersWithViews();
             services.AddRazorPages();
             services.AddScoped<DbConnection>(sp =>
             {
-                return new SqlConnection(connectionStringBuilder.ConnectionString);
+                return new NpgsqlConnection(npgsqlStr);
+                //return new SqlConnection(connectionStringBuilder.ConnectionString);
             });
         }
 

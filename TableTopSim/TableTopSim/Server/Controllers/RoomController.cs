@@ -34,8 +34,7 @@ namespace TableTopSim.Server.Controllers
             command.Parameters.AddWithValue("@PlayerName", playerName);
 
             if (!(await connection.TryOpenAsync())) { return null; }
-
-            var dr = await command.ExecuteReaderAsync();
+            DbDataReader dr = await command.ExecuteReaderAsync();
 
             PlayerAndRoomId retVal = null;
             if (await dr.ReadAsync())
@@ -106,7 +105,7 @@ namespace TableTopSim.Server.Controllers
         public static async Task<Player> GetPlayerRoom(DbConnection connection, int playerId)
         {
             DbCommand command = connection.GetDbCommand("uspGetPlayerRoom");
-            command.Parameters.AddWithValue("@PlayerId", playerId);
+            command.Parameters.AddWithValue("@Player", playerId);
 
             if (!(await connection.TryOpenAsync())) { return null; }
 
