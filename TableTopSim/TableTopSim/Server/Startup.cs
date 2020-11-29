@@ -45,6 +45,10 @@ namespace TableTopSim.Server
             //connectionStringBuilder.InitialCatalog = "TableTopSimDB";
             //sqlConnection = new SqlConnection(connectionStringBuilder.ConnectionString);
             string dbUrlVariableName = "DATABASE_URL";
+            if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable(dbUrlVariableName)))
+            {
+                isLocal = true;
+            }
             if (isLocal)
             {
                 var authInfo = File.ReadAllLines("auth.txt");
