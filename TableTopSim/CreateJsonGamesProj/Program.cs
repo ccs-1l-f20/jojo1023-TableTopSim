@@ -117,7 +117,7 @@ namespace CreateJsonGamesProj
             Dictionary<int, Sprite> sprites = new Dictionary<int, Sprite>();
             Dictionary<int, string> images = new Dictionary<int, string>();
 
-            sprites.Add(0, new RectSprite(null, new Vector2(200, 200), new Vector2(100, 200), new Color(100, 100, 255), new Vector2(50, 100), 0));
+            sprites.Add(0, new RectSprite(null, new Vector2(200, 200), new Vector2(100, 200), new Color(100, 100, 255), new Vector2(50, 100), 0) { Alpha = 0.5f });
             sprites.Add(1, new RectSprite(null, new Vector2(200, 200), new Vector2(10, 10), new Color(255, 0, 255), new Vector2(0, 0), 45));
             sprites.Add(2, new RectSprite(null, new Vector2(500, 500), new Vector2(50, 50), new Color(0, 0, 0), new Vector2(0, 0), 0));
             sprites.Add(3, new RectSprite(null, new Vector2(600, 500), new Vector2(50, 50), new Color(128, 128, 128), new Vector2(0, 0), 0));

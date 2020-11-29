@@ -137,10 +137,9 @@ namespace TableTopSim.Server
             int spritesDictLength = BitConverter.ToInt32(bytes.Array, bytes.Offset);
             bytes.Offset += 4;
             bool canSelect = true;
-            ArrayWithOffset<byte> serializedSpritesDict = null;
             if (spritesDictLength >= 0)
             {
-                serializedSpritesDict = bytes.Slice(0, spritesDictLength);
+                ArrayWithOffset<byte> serializedSpritesDict = bytes.Slice(0, spritesDictLength);
                 bytes.Offset += spritesDictLength;
                 int? selectedSprite = null;
                 if (bytes[0] != 0)

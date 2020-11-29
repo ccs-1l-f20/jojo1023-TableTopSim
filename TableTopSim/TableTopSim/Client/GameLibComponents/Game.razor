@@ -12,7 +12,7 @@
 
 
 <div @onkeydown="@KeyDown" @onkeyup="@KeyUp" tabindex="0" @ref="globalDiv"></div>
-<div @onmousemove="MouseMove" @onmousedown="MouseDown" @onmouseup="MouseUp" @ref="div" style="width:100%;height:100%">
+<div @onmousemove="MouseMove" @onmousedown="MouseDown" @onmouseup="MouseUp" @onmousewheel="MouseWheel" @ref="div" style="width:100%;height:100%">
     <MyCanvas Width="@Width" Height="@Height" @ref="canvas" />
 </div>
 
@@ -38,6 +38,7 @@
     Queue<MouseState> mouseStateQueue = new Queue<MouseState>();
     MouseState lastMouseStateInserted;
     object mouseLo = new object();
+    double mouseWheelUpdate = 0;
 
     protected override void OnInitialized()
     {
@@ -113,7 +114,9 @@
                         ms = mouseStateQueue.Dequeue();
                     }
                 }
-                await GameManager.Update(context, stopwatch.Elapsed, ct, ms, currentMousePos);
+                var mwu = mouseWheelUpdate;
+                mouseWheelUpdate = 0;
+                await GameManager.Update(context, stopwatch.Elapsed, ct, ms, currentMousePos, mwu);
             }
 
             long previousElapsedMilli = stopwatch.ElapsedMilliseconds;
@@ -162,6 +165,11 @@
                 lastMouseStateInserted = mouseState;
             }
         }
+    }
+    void MouseWheel(WheelEventArgs args)
+    {
+        //Debug.WriteLine($"MW: {args.DeltaY}");
+        mouseWheelUpdate += args.DeltaY;
     }
     protected override bool ShouldRender()
     {

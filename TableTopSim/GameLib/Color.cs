@@ -15,6 +15,7 @@ namespace GameLib
 
         [GameSerializableData(2)]
         public byte B { get; set; }
+
         static Color()
         {
             GameSerialize.AddType<Color>(Serialize, Deserialize);

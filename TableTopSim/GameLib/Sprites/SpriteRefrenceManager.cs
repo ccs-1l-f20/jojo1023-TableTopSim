@@ -15,13 +15,7 @@ namespace GameLib.Sprites
         public Dictionary<Sprite, int> SpriteAddresses { get; set; }
         public Dictionary<int, ElementReference> ImageElementRefs { get; private set; }
         public ElementReference ImageNotFound { get; private set; }
-        //public SpriteRefrenceManager(Dictionary<int, Sprite> defaultSprites)
-        //{
-        //    this.defaultSprites = defaultSprites;
-        //    defaultSpriteAddresses = defaultSprites.ToDictionary(kv => kv.Value, kv => kv.Key);
-        //    SpriteRefrences = new Dictionary<int, Sprite>();
-        //    SpriteAddresses = new Dictionary<Sprite, int>();
-        //}
+
         public SpriteRefrenceManager(Dictionary<int, ElementReference> imageElementRefs, ElementReference imageNotFound)
         {
             SpriteRefrences = new Dictionary<int, Sprite>();
@@ -36,31 +30,20 @@ namespace GameLib.Sprites
         }
         public Sprite GetSprite(int address)
         {
-            //if (defaultSprites.ContainsKey(address))
-            //{
-            //    return defaultSprites[address];
-            //}
             return SpriteRefrences[address];
         }
         public bool ContainsAddress(int address)
         {
             return SpriteRefrences.ContainsKey(address);
-            //|| defaultSprites.ContainsKey(address);
         }
         public int GetAddress(Sprite sprite)
         {
-            //if (defaultSpriteAddresses.ContainsKey(sprite))
-            //{
-            //    return defaultSpriteAddresses[sprite];
-            //}
             return SpriteAddresses[sprite];
         }
+
+
         public void AddSprite(int address, Sprite sprite)
         {
-            //if (defaultSprites.ContainsKey(address) || defaultSpriteAddresses.ContainsKey(sprite))
-            //{
-            //    throw new IndexOutOfRangeException();
-            //}
             SpriteRefrences.Add(address, sprite);
             SpriteAddresses.Add(sprite, address);
         }
