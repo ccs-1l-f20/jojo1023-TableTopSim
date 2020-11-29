@@ -16,7 +16,7 @@
 {
     @foreach (var imgId in imageDtos.Keys)
     {
-        <img src="@imageDtos[imgId].Url" asp-append-version="true" @ref="imageElementRefs[imgId]" style = "display:none"/>
+        <img src="@imageDtos[imgId].Url" asp-append-version="true" @ref="imageElementRefs[imgId]" style="display:none" />
     }
 }
 @if (gameProgram != null)
@@ -125,6 +125,13 @@
         NavigationManager.LocationChanged -= OnLocationChanged;
         //gameProgram.Dispose();
         cts.Cancel();
+    }
+    void OnResetTransform()
+    {
+        if (gameProgram != null)
+        {
+            gameProgram.ResetTransform();
+        }
     }
 
 

@@ -47,6 +47,10 @@ namespace GameLib.Sprites
         [GameSerializableData(4)]
         public bool Selectable { get => selectable; set { selectable = value; NotifyPropertyChanged(4); } }
 
+        float alpha = 1;
+        [GameSerializableData(5)]
+        public float Alpha { get => alpha; set { alpha = value; NotifyPropertyChanged(5); } }
+
         bool mouseOver = false;
 
 
@@ -113,12 +117,22 @@ namespace GameLib.Sprites
             if (visable)
             {
                 await context.SaveAsync();
+                await context.SetGlobalAlphaAsync(GetGlobalAlpha());
                 Matrix<float> glbTransform = Transform.GetGlobalMatrix(spriteMatries);
                 await context.TransformAsync(glbTransform[0, 0], glbTransform[1, 0], glbTransform[0, 1], glbTransform[1, 1], glbTransform[0, 2], glbTransform[1, 2]);
                 await OverideDraw(context);
 
                 await context.RestoreAsync();
             }
+        }
+
+        protected float GetGlobalAlpha()
+        {
+            if(Parent != null)
+            {
+                return Alpha * refManager.GetSprite(Parent.Value).GetGlobalAlpha();
+            }
+            return Alpha;
         }
 
         public LayerDepth GetGlobalLayerDepth()

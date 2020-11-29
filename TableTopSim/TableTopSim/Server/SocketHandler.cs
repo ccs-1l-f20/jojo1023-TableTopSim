@@ -211,7 +211,8 @@ namespace TableTopSim.Server
                 if(playerInfo.RoomId != null && GameRooms.ContainsKey(sendRoomId) 
                     && GameRooms[sendRoomId].PlayerWebSockets.ContainsKey(playerId))
                 {
-                    GameRooms[sendRoomId].PlayerWebSockets[playerId] = ws;
+                    GameRooms[sendRoomId].AddPlayerWS(playerId, ws);
+                    //GameRooms[sendRoomId].PlayerWebSockets[playerId] = ws;
                 }
             }
             await ws.SendAsync(new ArraySegment<byte>(sendBytes.ToArray()), WebSocketMessageType.Binary, true, CancellationToken.None);

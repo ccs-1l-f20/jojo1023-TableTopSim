@@ -7,16 +7,17 @@
 
 <h3 style="margin-bottom: 15px">Select a Game</h3>
 
-@if (games != null)
-{
-    <Table>
-        <TableHeader>
-            <TableHeaderCell>Id</TableHeaderCell>
-            <TableHeaderCell>Game Name</TableHeaderCell>
-            <TableHeaderCell>Players</TableHeaderCell>
-            <TableHeaderCell></TableHeaderCell>
-        </TableHeader>
-        <TableBody>
+
+<Table>
+    <TableHeader>
+        <TableHeaderCell>Id</TableHeaderCell>
+        <TableHeaderCell>Game Name</TableHeaderCell>
+        <TableHeaderCell>Players</TableHeaderCell>
+        <TableHeaderCell></TableHeaderCell>
+    </TableHeader>
+    <TableBody>
+        @if (games != null)
+        {
             @foreach (var gameId in games.Keys)
             {
                 <TableRow>
@@ -31,13 +32,13 @@
                     </TableRowCell>
                 </TableRow>
             }
+        }
+    </TableBody>
+</Table>
 
-        </TableBody>
-    </Table>
-}
-else
+@if (games == null)
 {
-    <p>Loading</p>
+    <p>Loading...</p>
 }
 @code {
     Dictionary<int, GameDataDto> games = null;

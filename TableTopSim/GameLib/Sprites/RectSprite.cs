@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
 namespace GameLib.Sprites
@@ -18,7 +19,9 @@ namespace GameLib.Sprites
         Vector2 size;
         [GameSerializableData(51)]
         public Vector2 Size { get => size; set { size = value; NotifyPropertyChanged(51); } }
+        [JsonIgnore]
         public float Width { get { return Size.X; } set { Size = new Vector2(value, Size.Y); } }
+        [JsonIgnore]
         public float Height { get { return Size.Y; } set { Size = new Vector2(Size.X, value); } }
 
         Vector2 origin;
