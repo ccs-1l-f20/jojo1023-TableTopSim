@@ -32,7 +32,6 @@ namespace TableTopSim.Server
 
         public IConfiguration Configuration { get; }
         DbConnection sqlConnection;
-        bool isLocal = true;
         // This method gets called by the runtime. Use this method to add services to the container.
         // For more information on how to configure your application, visit https://go.microsoft.com/fwlink/?LinkID=398940
         public void ConfigureServices(IServiceCollection services)
@@ -46,10 +45,6 @@ namespace TableTopSim.Server
             //sqlConnection = new SqlConnection(connectionStringBuilder.ConnectionString);
             string dbUrlVariableName = "DATABASE_URL";
             if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable(dbUrlVariableName)))
-            {
-                isLocal = true;
-            }
-            if (isLocal)
             {
                 var authInfo = File.ReadAllLines("auth.txt");
                 Environment.SetEnvironmentVariable(dbUrlVariableName, $"postgres://{authInfo[0]}:{authInfo[1]}@localhost:5432/TableTopSimDB");
