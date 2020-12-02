@@ -52,6 +52,8 @@ namespace TableTopSim.Server
         Random random = new Random();
         Dictionary<int, CursorInfo> playerCursors;
         bool roomInit = false;
+        DateTime lastUpdate;
+        public event Func<int, Task> DeleteRoom;
         public GameRoom(int roomId, int initPlayerId, int gameId, WebSocket initPlayerWs)
         {
             refManager = new SpriteRefrenceManager(new Dictionary<int, ElementReference>(), new ElementReference());
@@ -82,6 +84,65 @@ namespace TableTopSim.Server
                 s.LayerDepth.AddAtStart(0);
             }
             roomInit = true;
+            lastUpdate = DateTime.Now;
+            _ = CloseRoomChecker();
+        }
+        int maxPreStartMinutes = 15;
+        int maxPostStartMinutes = 30;
+        int maxPostStartNoPlayerMinutes = 5;
+        async Task CloseRoomChecker()
+        {
+            int minMinutes = Math.Min(maxPostStartMinutes, Math.Min(maxPostStartMinutes, maxPostStartNoPlayerMinutes));
+            double waitAmount = minMinutes;
+            while (true)
+            {
+                await Task.Delay((int)(waitAmount * 1000 * 60));
+                DateTime current = DateTime.Now;
+                TimeSpan diff = current - lastUpdate;
+                int currentMax = maxPreStartMinutes;
+                if (GameStarted)
+                {
+                    List<int> closedWsPlayers = new List<int>();
+                    bool noPlayers = true;
+                    foreach (var p in PlayerWebSockets.Keys)
+                    {
+                        if (PlayerWebSockets[p] != null)
+                        {
+                            if (PlayerWebSockets[p].State != WebSocketState.Open)
+                            {
+                                webSocketPlayers.Remove(PlayerWebSockets[p]);
+                                closedWsPlayers.Add(p);
+                            }
+                            else
+                            {
+                                noPlayers = false;
+                                break;
+                            }
+                        }
+                    }
+                    foreach (var p in closedWsPlayers)
+                    {
+                        PlayerWebSockets[p] = null;
+                    }
+                    if (noPlayers)
+                    {
+                        currentMax = maxPostStartNoPlayerMinutes;
+                    }
+                    else
+                    {
+                        currentMax = maxPostStartMinutes;
+                    }
+                }
+                if (diff.TotalMinutes > currentMax)
+                {
+                    break;
+                }
+                else
+                {
+                    waitAmount = Math.Max(minMinutes - diff.TotalMinutes, 0.1);
+                }
+            }
+            await DeleteRoom?.Invoke(RoomId);
         }
         int GetNewSpriteAddress()
         {
@@ -118,6 +179,7 @@ namespace TableTopSim.Server
                 cursor.LayerDepth[0] = -1;
                 playerCursors.Add(pId, new CursorInfo(cAd, null));
             }
+            lastUpdate = DateTime.Now;
 
         }
 
@@ -203,38 +265,8 @@ namespace TableTopSim.Server
                 }
             }
             _ = SendToPlayer(senderPlayer, canSelect, spritesDictLength < 0);
+            lastUpdate = DateTime.Now;
             return Task.CompletedTask;
-            //lock (gameLockObject)
-            //{
-            //    if (selectedSprite != null)
-            //    {
-            //        foreach(var k in playerCursors.Keys)
-            //        {
-            //            if (k == senderPlayer) { continue; }
-            //            var v = playerCursors[k];
-            //            if(v.SelectedSpriteId == selectedSprite.Value)
-            //            {
-            //                canSelect = false;
-            //                break;
-            //            }
-            //        }
-            //    }
-            //    if (canSelect)
-            //    {
-            //        playerCursors[senderPlayer].SelectedSpriteId = selectedSprite;
-            //        refManager.SpriteRefrences = GameSerialize.DeserializeEditGameData(refManager.SpriteRefrences, serializedSpritesDict);
-            //        refManager.UpdateSpriteAddresses();
-            //    }
-            //}
-
-            //if (canSelect)
-            //{
-            //    List<byte> sendBackMessage = new List<byte>() { (byte)MessageType.ChangeGameState };
-            //    sendBackMessage.AddRange(BitConverter.GetBytes(RoomId));
-            //    sendBackMessage.AddRange(bytes.Array.Skip(origOffset).ToArray());
-            //    sendBackMessage.AddRange(BitConverter.GetBytes(senderPlayer));
-            //    await SendToRoom(sendBackMessage, ws);
-            //}
         }
         async Task SendToPlayer(int playerId, bool couldSelect, bool forceFullUpdate)
         {
@@ -325,6 +357,7 @@ namespace TableTopSim.Server
         public async Task SendToRoom(IEnumerable<byte> bytes, WebSocket ignoreWs = null)
         {
             var arraySeg = new ArraySegment<byte>(bytes.ToArray());
+            List<int> closedWsPlayers = new List<int>();
             foreach (var pId in PlayerWebSockets.Keys)
             {
                 var ws = PlayerWebSockets[pId];
@@ -333,12 +366,16 @@ namespace TableTopSim.Server
                     if (ws.State != WebSocketState.Open)
                     {
                         webSocketPlayers.Remove(ws);
-                        PlayerWebSockets[pId] = null;
+                        closedWsPlayers.Add(pId);
                         continue;
                     }
                     if (ws == ignoreWs) { continue; }
                     await ws.SendAsync(arraySeg, WebSocketMessageType.Binary, true, CancellationToken.None);
                 }
+            }
+            foreach (var pId in closedWsPlayers)
+            {
+                PlayerWebSockets[pId] = null;
             }
         }
     }

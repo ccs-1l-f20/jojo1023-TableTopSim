@@ -192,10 +192,12 @@ Game Name:
             {
                 var desSprites = JsonConvert.DeserializeObject<Dictionary<int, Sprite>>(jg.SerializedSprites, new SpriteJsonConverter());
             }
-            catch (Exception)
+            catch (Exception e)
             {
+                string st = e.StackTrace;
+                string m = e.Message;
                 addingGame = false;
-                GlobalData.ShowMessage("Issue Deserializing Spites Json");
+                GlobalData.ShowMessage("Issue Deserializing Sprites Json");
                 return;
             }
         }

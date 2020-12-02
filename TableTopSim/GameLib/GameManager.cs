@@ -66,77 +66,75 @@ namespace GameLib
         }
         public async Task Update(MyCanvas2DContext context, TimeSpan elapsedTime, CancellationToken ct, MouseState ms, Vector2 mousePos, double mouseWheelUpdate)
         {
-            RawMousePos = mousePos;
-            Matrix<float> boardTransform = BoardTransform.GetMatrix();
-            var originMatrix = CreateMatrix.DenseIdentity<float>(3, 3);
-            originMatrix[0, 2] = -BoardTransformOrigin.X;
-            originMatrix[1, 2] = -BoardTransformOrigin.Y;
-            var boardTransformWithOrigin = boardTransform * originMatrix;
-            var invBoardTransform = Transform.InverseTransformMatrix(boardTransformWithOrigin);
-            MousePos = Transform.TransformPoint(invBoardTransform, mousePos);
-            MouseState = ms;
-            OnUpdate?.Invoke(elapsedTime, ms, LastMouseState, mouseWheelUpdate);
-
-            bool mouseBlocked = false;
-            MouseOnSprite = null;
-            MouseOnBehindSprite = null;
-            var uiSpriteMatries = SortAndUpdateSprites(ref pvtUiSprites, UISpriteRefrenceManager, false, ref mouseBlocked, elapsedTime, RawMousePos, MouseState, context);
-            var spriteMatries = SortAndUpdateSprites(ref pvtSprites, SpriteRefrenceManager, true, ref mouseBlocked, elapsedTime, MousePos, MouseState, context);
-
-            //foreach(int i in pvtSprites)
+            //try
             //{
-            //    Sprite s = SpriteRefrenceManager.GetSprite(i);
-            //    if(s is SpriteStack)
-            //    {
-            //        SpriteStack ss = (SpriteStack)s;
-            //        var tm = await ss.countText.MeasureText(context);
-            //        Debug.WriteLine("Width sdf: " + tm.Width);
-            //    }
+                RawMousePos = mousePos;
+                Matrix<float> boardTransform = BoardTransform.GetMatrix();
+                var originMatrix = CreateMatrix.DenseIdentity<float>(3, 3);
+                originMatrix[0, 2] = -BoardTransformOrigin.X;
+                originMatrix[1, 2] = -BoardTransformOrigin.Y;
+                var boardTransformWithOrigin = boardTransform * originMatrix;
+                var invBoardTransform = Transform.InverseTransformMatrix(boardTransformWithOrigin);
+                MousePos = Transform.TransformPoint(invBoardTransform, mousePos);
+                MouseState = ms;
+                OnUpdate?.Invoke(elapsedTime, ms, LastMouseState, mouseWheelUpdate);
+
+                bool mouseBlocked = false;
+                MouseOnSprite = null;
+                MouseOnBehindSprite = null;
+                var uiSpriteMatries = SortAndUpdateSprites(ref pvtUiSprites, UISpriteRefrenceManager, false, ref mouseBlocked, elapsedTime, RawMousePos, MouseState, context);
+                var spriteMatries = SortAndUpdateSprites(ref pvtSprites, SpriteRefrenceManager, true, ref mouseBlocked, elapsedTime, MousePos, MouseState, context);
+
+
+                for (int i = Sprites.Count - 1; i >= 0; i--)
+                {
+                    int add = Sprites[i];
+                    Sprite sprite = SpriteRefrenceManager.GetSprite(add);
+                    await sprite.PreDrawUpdate(context);
+                }
+
+                for (int i = UiSprites.Count - 1; i >= 0; i--)
+                {
+                    int add = UiSprites[i];
+                    Sprite sprite = UISpriteRefrenceManager.GetSprite(add);
+                    await sprite.PreDrawUpdate(context);
+                }
+
+                await context.BeginBatchAsync();
+                await context.SetFillStyleAsync(BackColor.ToString());
+                await context.SaveAsync();
+                await context.FillRectAsync(0, 0, Width, Height);
+
+                await context.TransformAsync(boardTransform[0, 0], boardTransform[1, 0], boardTransform[0, 1], boardTransform[1, 1], boardTransform[0, 2], boardTransform[1, 2]);
+                await context.TranslateAsync(-BoardTransformOrigin.X, -BoardTransformOrigin.Y);
+
+                for (int i = Sprites.Count - 1; i >= 0; i--)
+                {
+                    int add = Sprites[i];
+                    Sprite sprite = SpriteRefrenceManager.GetSprite(add);
+                    await sprite.Draw(context, spriteMatries);
+                }
+
+                await context.RestoreAsync();
+                await context.SaveAsync();
+
+                for (int i = UiSprites.Count - 1; i >= 0; i--)
+                {
+                    int add = UiSprites[i];
+                    Sprite sprite = UISpriteRefrenceManager.GetSprite(add);
+                    await sprite.Draw(context, uiSpriteMatries);
+                }
+
+                await context.RestoreAsync();
+                await context.EndBatchAsync();
+                LastMouseState = ms;
+                Keyboard.StateUpdate();
             //}
-
-            for (int i = Sprites.Count - 1; i >= 0; i--)
-            {
-                int add = Sprites[i];
-                Sprite sprite = SpriteRefrenceManager.GetSprite(add);
-                await sprite.PreDrawUpdate(context);
-            }
-
-            for (int i = UiSprites.Count - 1; i >= 0; i--)
-            {
-                int add = UiSprites[i];
-                Sprite sprite = UISpriteRefrenceManager.GetSprite(add);
-                await sprite.PreDrawUpdate(context);
-            }
-
-            await context.BeginBatchAsync();
-            await context.SetFillStyleAsync(BackColor.ToString());
-            await context.SaveAsync();
-            await context.FillRectAsync(0, 0, Width, Height);
-
-            await context.TransformAsync(boardTransform[0, 0], boardTransform[1, 0], boardTransform[0, 1], boardTransform[1, 1], boardTransform[0, 2], boardTransform[1, 2]);
-            await context.TranslateAsync(-BoardTransformOrigin.X, -BoardTransformOrigin.Y);
-
-            for (int i = Sprites.Count - 1; i >= 0; i--)
-            {
-                int add = Sprites[i];
-                Sprite sprite = SpriteRefrenceManager.GetSprite(add);
-                await sprite.Draw(context, spriteMatries);
-            }
-
-            await context.RestoreAsync();
-            await context.SaveAsync();
-
-            for (int i = UiSprites.Count - 1; i >= 0; i--)
-            {
-                int add = UiSprites[i];
-                Sprite sprite = UISpriteRefrenceManager.GetSprite(add);
-                await sprite.Draw(context, uiSpriteMatries);
-            }
-
-            await context.RestoreAsync();
-            await context.EndBatchAsync();
-            LastMouseState = ms;
-            Keyboard.StateUpdate();
+            //catch(Exception e)
+            //{
+            //    string st = e.StackTrace;
+            //    string m = e.Message;
+            //}
         }
         public LayerDepth GetFrontLayerDepth(int ldLength)
         {

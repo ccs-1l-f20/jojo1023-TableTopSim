@@ -38,7 +38,7 @@ namespace GameLib.Sprites
             await countCircle.PreDrawUpdate(context);
             await countText.PreDrawUpdate(context);
         }
-        
+
         protected override async Task OverrideDraw(MyCanvas2DContext context)
         {
             if (Stack.Count <= 0) { return; }
@@ -56,7 +56,7 @@ namespace GameLib.Sprites
         {
             if (Stack.Count <= 0) { return false; }
             Sprite s = refManager.GetSprite(Stack[Stack.Count - 1]);
-            return ProtectedPointInHitbox(s, point, glbMatrix);
+            return ProtectedPointInHitbox(s, point, glbMatrix * s.Transform.GetMatrix());
         }
         public override (bool select, Sprite spriteToSelect) OnClick(bool isAlt)
         {
@@ -89,7 +89,11 @@ namespace GameLib.Sprites
         }
         internal void AddToStack(Sprite sprite, int add)
         {
-            int thisAdd = refManager.GetAddress(this);
+            int thisSpriteId = refManager.GetAddress(this);
+            AddToStack(thisSpriteId, sprite, add);
+        }
+        public void AddToStack(int thisSpriteId, Sprite sprite, int add)
+        {
             if (sprite.ObjectType == ObjectTypes.SpriteStack)
             {
                 SpriteStack otherSpriteStack = (SpriteStack)sprite;
@@ -100,7 +104,8 @@ namespace GameLib.Sprites
                     {
                         Sprite innerSprite = refManager.GetSprite(innerAdd);
                         innerSprite.Transform.Position = Vector2.Zero;
-                        innerSprite.Parent = thisAdd;
+                        innerSprite.Transform.Rotation -= Transform.Rotation;
+                        innerSprite.Parent = thisSpriteId;
                         innerSprite.Visiable = false;
                         Stack.Add(innerAdd);
                     }
@@ -115,7 +120,12 @@ namespace GameLib.Sprites
             else
             {
                 sprite.Transform.Position = Vector2.Zero;
-                sprite.Parent = thisAdd;
+                if (Stack.Count == 0)
+                {
+                    Transform.Rotation = sprite.Transform.Rotation;
+                }
+                sprite.Transform.Rotation -= Transform.Rotation;
+                sprite.Parent = thisSpriteId;
                 sprite.Visiable = false;
                 Stack.Add(add);
                 NotifyPropertyChanged(stackDataId);
@@ -128,6 +138,7 @@ namespace GameLib.Sprites
             Stack.RemoveAt(Stack.Count - 1);
             Sprite sprite = refManager.GetSprite(add);
             sprite.Transform.Position = Transform.Position;
+            sprite.Transform.Rotation += Transform.Rotation;
             sprite.Parent = null;
             sprite.Visiable = true;
             if (Stack.Count <= 0)
@@ -137,6 +148,28 @@ namespace GameLib.Sprites
 
             NotifyPropertyChanged(stackDataId);
             return sprite;
+        }
+
+        public override void SelectedUpdate(KeyboardState keyboard)
+        {
+            if (keyboard.ContainsKeyCode("KeyS"))
+            {
+                var keyInfo = keyboard["KeyS"];
+                if (keyInfo.Down && !keyInfo.LastDown)
+                {
+                    Random random = new Random();
+                    List<int> newStack = new List<int>();
+                    while(Stack.Count > 0)
+                    {
+                        int rnd = random.Next(0, Stack.Count);
+                        newStack.Add(Stack[rnd]);
+                        Stack.RemoveAt(rnd);
+                    }
+                    Stack = newStack;
+
+                    NotifyPropertyChanged(stackDataId);
+                }
+            }
         }
     }
 }

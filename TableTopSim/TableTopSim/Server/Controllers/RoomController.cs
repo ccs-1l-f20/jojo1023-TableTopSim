@@ -152,5 +152,16 @@ namespace TableTopSim.Server.Controllers
             connection.Close();
             return retVal;
         }
+
+        public static async Task<bool> DeleteRoom(DbConnection connection, int roomId)
+        {
+            DbCommand command = connection.GetDbCommand("uspDeleteRoom");
+            command.Parameters.AddWithValue("@RoomId", roomId);
+
+            if (!(await connection.TryOpenAsync())) { return false; }
+            await command.ExecuteNonQueryAsync();
+            connection.Close();
+            return true;
+        }
     }
 }

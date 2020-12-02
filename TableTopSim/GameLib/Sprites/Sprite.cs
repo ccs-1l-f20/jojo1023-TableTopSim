@@ -77,6 +77,7 @@ namespace GameLib.Sprites
                 GetDeafaultSprites.Add(ObjectTypes.SpriteStack, (() => new SpriteStack(), typeof(SpriteStack)));
                 GetDeafaultSprites.Add(ObjectTypes.CircleSprite, (() => new CircleSprite(), typeof(CircleSprite)));
                 GetDeafaultSprites.Add(ObjectTypes.TextSprite, (() => new TextSprite(), typeof(TextSprite)));
+                GetDeafaultSprites.Add(ObjectTypes.FlippableSprite, (() => new FlippableSprite(), typeof(FlippableSprite)));
                 GameSerialize.AddType<Sprite>(GameSerialize.GenericSerializeFunc, DeserializeSprite, true);
             }
         }
@@ -110,7 +111,11 @@ namespace GameLib.Sprites
         {
             OnPropertyChanged?.Invoke(this, new List<int>() { transformDataId, arg2 });
         }
-        public void SetRefManager(SpriteRefrenceManager refManager)
+        protected void InvokePropertyChanged(List<int> path)
+        {
+            OnPropertyChanged?.Invoke(this, path);
+        }
+        public virtual void SetRefManager(SpriteRefrenceManager refManager)
         {
             this.refManager = refManager;
             Transform.SetRefManager(refManager, this);
@@ -205,12 +210,13 @@ namespace GameLib.Sprites
             //}
             return blocking;
         }
-        
+        public virtual void SelectedUpdate(KeyboardState keyboard) { }
         public virtual Task PreDrawUpdate(MyCanvas2DContext context) { return Task.CompletedTask; }
         protected virtual void OverideUpdate(Vector2 mousePos, MouseState mouseState, TimeSpan elapsedTime) { }
 
         protected static bool ProtectedPointInHitbox(Sprite sprite, Vector2 point, Matrix<float> glbMatrix)
         {
+
             return sprite.PointInHitbox(point, glbMatrix);
         }
         protected abstract bool PointInHitbox(Vector2 point, Matrix<float> glbMatrix);

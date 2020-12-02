@@ -16,6 +16,7 @@ namespace GameLib
         ImageSprite,
         SpriteStack,
         CircleSprite,
-        TextSprite
+        TextSprite,
+        FlippableSprite
     }
 }

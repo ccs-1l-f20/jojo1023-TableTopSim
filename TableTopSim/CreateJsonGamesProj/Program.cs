@@ -51,6 +51,7 @@ namespace CreateJsonGamesProj
                 {PieceHash(ChessPiece.Knight, true), "Chess_nlt45.svg" },
                 {PieceHash(ChessPiece.Pawn, false), "Chess_pdt45.svg" },
                 {PieceHash(ChessPiece.Pawn, true), "Chess_plt45.svg" },
+                {567, "cardBack.png" },
             };
             //images.Add(1, "cardBack.png");
             int boardImgId = 100;
@@ -91,20 +92,54 @@ namespace CreateJsonGamesProj
                 spiteId++;
             }
 
-            for(int i = 0; i < 8; i++)
+            var cardS = new FlippableSprite(null, new Vector2(300, 300), false,
+                new ImageSprite(null, Vector2.Zero, PieceHash(ChessPiece.Pawn, true), checkerSize, checkerSize / 2),
+                new ImageSprite(null, Vector2.Zero, 567, new Vector2(338, 469), new Vector2(338 / 2f, 469 / 2f)));
+            cardS.FrontSprite.Transform.Scale *= 1.5f;
+            sprites.Add(spiteId, cardS);
+            spiteId++;
+
+            int bKnightPath = PieceHash(ChessPiece.Knight, false);
+            int wKnightPath = PieceHash(ChessPiece.Knight, true);
+            int bQueenPath = PieceHash(ChessPiece.Queen, false);
+            int wQueenPath = PieceHash(ChessPiece.Queen, true);
+            SpriteStack bKnightStack = new SpriteStack(null, GetCenterCheckerPos(-1, 3), bKnightPath);
+            sprites.Add(spiteId, bKnightStack);
+            int bKnightStackId = spiteId;
+            spiteId++;
+
+            SpriteStack bQueenStack = new SpriteStack(null, GetCenterCheckerPos(-1, 4), bQueenPath);
+            sprites.Add(spiteId, bQueenStack);
+            int bQueenStackId = spiteId;
+            spiteId++;
+
+            SpriteStack wKnightStack = new SpriteStack(null, GetCenterCheckerPos(8, 3), wKnightPath);
+            sprites.Add(spiteId, wKnightStack);
+            int wKnightStackId = spiteId;
+            spiteId++;
+
+            SpriteStack wQueenStack = new SpriteStack(null, GetCenterCheckerPos(8, 4), wQueenPath);
+            sprites.Add(spiteId, wQueenStack);
+            int wQueenStackId = spiteId;
+            spiteId++;
+
+            for (int i = 0; i < 8; i++)
             {
-                //int bKnightPath = PieceHash(ChessPiece.Knight, false);
-                //int wKnightPath = PieceHash(ChessPiece.Knight, true);
-                //int bQueenPath = PieceHash(ChessPiece.Queen, false);
-                //int wQueenPath = PieceHash(ChessPiece.Queen, true);
-                //sprites.Add(spiteId, new ImageSprite(null, GetCenterCheckerPos(-1, 3), bKnightPath, checkerSize, checkerSize / 2, 0));
-                //spiteId++;
-                //sprites.Add(spiteId, new ImageSprite(null, GetCenterCheckerPos(-1, 4), bQueenPath, checkerSize, checkerSize / 2, 0));
-                //spiteId++;
-                //sprites.Add(spiteId, new ImageSprite(null, GetCenterCheckerPos(8, 3), wKnightPath, checkerSize, checkerSize / 2, 0));
-                //spiteId++;
-                //sprites.Add(spiteId, new ImageSprite(null, GetCenterCheckerPos(8, 4), wQueenPath, checkerSize, checkerSize / 2, 0));
-                //spiteId++;
+                sprites.Add(spiteId, new ImageSprite(null, Vector2.Zero, bKnightPath, checkerSize, checkerSize / 2, 180) { StackableIndex = bKnightPath });
+                bKnightStack.AddToStack(bKnightStackId, sprites[spiteId], spiteId);
+                spiteId++;
+
+                sprites.Add(spiteId, new ImageSprite(null, Vector2.Zero, bQueenPath, checkerSize, checkerSize / 2, 180) { StackableIndex = bQueenPath });
+                bQueenStack.AddToStack(bQueenStackId, sprites[spiteId], spiteId);
+                spiteId++;
+
+                sprites.Add(spiteId, new ImageSprite(null, Vector2.Zero, wKnightPath, checkerSize, checkerSize / 2) { StackableIndex = wKnightPath });
+                wKnightStack.AddToStack(wKnightStackId, sprites[spiteId], spiteId);
+                spiteId++;
+
+                sprites.Add(spiteId, new ImageSprite(null, Vector2.Zero, wQueenPath, checkerSize, checkerSize / 2) { StackableIndex = wQueenPath });
+                wQueenStack.AddToStack(wQueenStackId, sprites[spiteId], spiteId);
+                spiteId++;
             }
 
             JsonGame jsonGame = new JsonGame(1, 3, canvasSize, JsonConvert.SerializeObject(sprites), images);

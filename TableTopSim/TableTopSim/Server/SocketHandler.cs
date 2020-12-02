@@ -13,6 +13,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using TableTopSim.Server.Controllers;
+using TableTopSim.Shared;
 
 namespace TableTopSim.Server
 {
@@ -29,7 +30,7 @@ namespace TableTopSim.Server
             this.sqlConnection = sqlConnection;
             PlayerWebSockets = new Dictionary<int, (WebSocket ws, int? room)>();
             GameRooms = new Dictionary<int, GameRoom>();
-            if(MessageFunctions == null)
+            if (MessageFunctions == null)
             {
                 MessageFunctions = new Dictionary<MessageType, Func<WebSocket, long, ArraySegment<byte>, Task>>();
                 MessageFunctions.Add(MessageType.CreateRoom, OnCreateRoom);
@@ -123,7 +124,7 @@ namespace TableTopSim.Server
             string playerName = msgBytes.GetNextString();
             var playerAndRoom = await RoomController.CreatePlayerAndRoom(sqlConnection, gameId, playerName);
             List<byte> sendBytes = ConfirmationList(messageId, msgType, playerAndRoom == null);
-            if(playerAndRoom != null)
+            if (playerAndRoom != null)
             {
                 sendBytes.AddRange(BitConverter.GetBytes(playerAndRoom.PlayerId));
                 sendBytes.AddRange(BitConverter.GetBytes(playerAndRoom.RoomId));
@@ -137,6 +138,7 @@ namespace TableTopSim.Server
                 else
                 {
                     GameRooms.Add(playerAndRoom.RoomId, gr);
+                    GameRooms[playerAndRoom.RoomId].DeleteRoom += DeleteRoom;
                 }
             }
             if (ws.State == WebSocketState.Open)
@@ -145,7 +147,7 @@ namespace TableTopSim.Server
             }
             else
             {
-                if(playerAndRoom != null)
+                if (playerAndRoom != null)
                 {
                     PlayerWebSockets.Remove(playerAndRoom.PlayerId);
                     GameRooms.Remove(playerAndRoom.RoomId);
@@ -184,11 +186,6 @@ namespace TableTopSim.Server
             if (gameStarted && GameRooms.ContainsKey(roomId))
             {
                 await GameRooms[roomId].StartGame();
-                //GameRooms[roomId].GameStarted = true;
-                //List<byte> sendBytes = new List<byte>();
-                //sendBytes.Add((byte)msgType);
-                //sendBytes.AddRange(BitConverter.GetBytes(roomId));
-                //await GameRooms[roomId].SendToRoom(new ArraySegment<byte>(sendBytes.ToArray()));
             }
         }
 
@@ -208,7 +205,7 @@ namespace TableTopSim.Server
                 sendBytes.Add(GetBoolByte(playerInfo.RoomOpen));
                 MessageExtensions.AddStringBytes(sendBytes, playerInfo.Name);
                 PlayerWebSockets[playerId] = (ws, playerInfo.RoomId);
-                if(playerInfo.RoomId != null && GameRooms.ContainsKey(sendRoomId) 
+                if (playerInfo.RoomId != null && GameRooms.ContainsKey(sendRoomId)
                     && GameRooms[sendRoomId].PlayerWebSockets.ContainsKey(playerId))
                 {
                     GameRooms[sendRoomId].AddPlayerWS(playerId, ws);
@@ -218,7 +215,7 @@ namespace TableTopSim.Server
             await ws.SendAsync(new ArraySegment<byte>(sendBytes.ToArray()), WebSocketMessageType.Binary, true, CancellationToken.None);
         }
 
-        
+
         async Task ChangeGameState(WebSocket ws, long messageId, ArraySegment<byte> msgBytes)
         {
             int roomId = MessageExtensions.GetNextInt(ref msgBytes);
@@ -226,6 +223,12 @@ namespace TableTopSim.Server
             {
                 await GameRooms[roomId].RecievedChangeGame(ws, msgBytes);
             }
+        }
+
+        async Task DeleteRoom(int roomId)
+        {
+            GameRooms.Remove(roomId);
+            await ReTryer.Try(3000, 5, async () => await RoomController.DeleteRoom(sqlConnection, roomId));
         }
         #endregion
     }

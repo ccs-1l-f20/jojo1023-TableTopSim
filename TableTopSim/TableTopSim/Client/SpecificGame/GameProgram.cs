@@ -72,6 +72,7 @@ namespace TableTopSim.Client.SpecificGame
         public void Dispose()
         {
             ws.OnRecieved -= OnRecivedWSMessage;
+            ws.Close();
         }
         void OnRecivedWSMessage(ArraySegment<byte> origMessage)
         {
@@ -552,6 +553,11 @@ namespace TableTopSim.Client.SpecificGame
                 }
             }
 
+            if (thisCursorInfo != null && thisCursorInfo.SelectedSpriteId != null)
+            {
+                Sprite s = refManager.GetSprite(thisCursorInfo.SelectedSpriteId.Value);
+                s.SelectedUpdate(Manager.Keyboard);
+            }
 
 
 
