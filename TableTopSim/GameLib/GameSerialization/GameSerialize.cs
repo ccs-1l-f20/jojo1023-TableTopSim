@@ -25,6 +25,11 @@ namespace GameLib.GameSerialization
             bytes.Add((byte)(o == null ? 0 : 255));
             bytes.AddRange(BitConverter.GetBytes((int)(o == null ? 0 : o.Value)));
         }
+        public static void SerializeNullableFloat(float? o, List<byte> bytes)
+        {
+            bytes.Add((byte)(o == null ? 0 : 255));
+            bytes.AddRange(BitConverter.GetBytes((float)(o == null ? 0 : o.Value)));
+        }
         static void SerializeRect(RectangleF r, List<byte> bytes)
         {
             bytes.AddRange(BitConverter.GetBytes(r.X));
@@ -55,8 +60,14 @@ namespace GameLib.GameSerialization
                     bytes.Offset += 5; int? retVal = null;
                     if (bytes[-5] != 0) { retVal = BitConverter.ToInt32(bytes.Array, bytes.Offset - 4); }
                     return retVal;
-                }, false);
-
+                }, false); 
+            AddType<float?>((o, info, bytes) => SerializeNullableFloat(o, bytes),
+                 (info, bytes) =>
+                 {
+                     bytes.Offset += 5; float? retVal = null;
+                     if (bytes[-5] != 0) { retVal = BitConverter.ToSingle(bytes.Array, bytes.Offset - 4); }
+                     return retVal;
+                 }, false);
             AddType<float>((o, info, bytes) => bytes.AddRange(BitConverter.GetBytes(o)),
                 (info, bytes) => { bytes.Offset += 4; return BitConverter.ToSingle(bytes.Array, bytes.Offset - 4); }, false);
             AddType<double>((o, info, bytes) => bytes.AddRange(BitConverter.GetBytes(o)),
@@ -513,7 +524,7 @@ namespace GameLib.GameSerialization
             else if (type.GetInterface("IDictionary") != null)
             {
                 IDictionary dict = (IDictionary)data;
-                Type valueType = type.GenericTypeArguments[0];
+                Type valueType = type.GenericTypeArguments[1];
                 object setData = DeserializeGameData(valueType, dataBytes);
                 if (dict.Contains(pathId))
                 {

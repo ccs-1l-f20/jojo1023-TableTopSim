@@ -19,7 +19,7 @@ namespace TableTopSim.Client.SpecificGame
         TimeSpan totalTime = new TimeSpan(0);
         //int? selectedSpriteKey = null;
         bool spriteSelectedChanged = false;
-        int? queuedSelectedSprite = null;
+        int queuedSelectedSprite = 0;
         //ElementReference cardBack, king, queen;
         MyClientWebSocket ws;
         SpriteRefrenceManager refManager => Manager.SpriteRefrenceManager;
@@ -42,7 +42,7 @@ namespace TableTopSim.Client.SpecificGame
             CursorInfo.Init();
             this.size = size;
             Manager = new GameManager(size, new SpriteRefrenceManager(imageElementRefs, imageNotFound), playerId);
-
+            refManager.SpriteAdded += SpriteAdded;
 
             uiRefManager.AddSprite(0,
                 shiftSprite = new RectSprite(uiRefManager, Vector2.Zero, new Vector2(size.Width, size.Height), new Color(0, 0, 0), Vector2.Zero, 0)
@@ -127,6 +127,14 @@ namespace TableTopSim.Client.SpecificGame
                     selectedSprite = thisCursorInfo.SelectedSpriteId;
                 }
                 GameSerialize.SerializeNullableInt(selectedSprite, sendBytes);
+                List<byte> serializedAdded = new List<byte>();
+                if (addedSpriteIds.Count > 0)
+                {
+                    serializedAdded = GameSerialize.SerializeGameData(addedSpriteIds);
+                    addedSpriteIds.Clear();
+                }
+                sendBytes.AddRange(BitConverter.GetBytes(serializedAdded.Count));
+                sendBytes.AddRange(serializedAdded);
             }
 
             _ = ws.SendMessageAsync(new ArraySegment<byte>(sendBytes.ToArray()));
@@ -134,17 +142,32 @@ namespace TableTopSim.Client.SpecificGame
 
         bool ignorePropertyChanged = false;
         PathTrie<object> changedProperties = new PathTrie<object>();
+        List<int> addedSpriteIds = new List<int>();
 
         void OnPropertyChanged(Sprite sprite, List<int> propertyPath)
         {
             if (!ignorePropertyChanged)
             {
                 int add = refManager.GetAddress(sprite);
-                propertyPath.Insert(0, add);
-                changedProperties.Insert(propertyPath, null, true);
+                if (!changedProperties.ContainsKey(new int[] { add }))
+                {
+                    propertyPath.Insert(0, add);
+                    changedProperties.Insert(propertyPath, null, true);
+                }
             }
         }
-
+        void SpriteAdded(int add)
+        {
+            Sprite s = refManager.GetSprite(add);
+            addedSpriteIds.Add(add);
+            Manager.Sprites.Add(add);
+            s.SetRefManager(refManager);
+            s.OnPropertyChanged -= OnPropertyChanged;
+            s.OnPropertyChanged += OnPropertyChanged;
+            int[] path = new int[] { add };
+            changedProperties.Insert(path, null, true);
+            changedProperties.ClearNodeChildren(path);
+        }
         private void OnKeyUp(KeyInfo keyInfo) { }
 
         private void OnKeyDown(KeyInfo keyInfo) { }
@@ -244,7 +267,7 @@ namespace TableTopSim.Client.SpecificGame
         }
         bool panMode = false;
         Vector2 lastPan = Vector2.Zero;
-        void MouseUpdate(bool isShift, MouseState ms, MouseState lms)
+        void MouseUpdate(bool isShift, bool isAlt, MouseState ms, MouseState lms)
         {
             if (ms == MouseState.Down)
             {
@@ -261,10 +284,7 @@ namespace TableTopSim.Client.SpecificGame
                             Vector2 mDiff = curPos - lastPan;
                             if (mDiff.X != 0 || mDiff.Y != 0)
                             {
-                                //mDiff = Transform.TransformPoint(Manager.BoardTransform.GetMatrix(), mDiff) - Manager.BoardTransform.Position;
                                 Manager.BoardTransformOrigin -= mDiff;
-                                //Debug.WriteLine($"BO: {Manager.BoardTransformOrigin}");
-                                //Manager.BoardTransform.Position += mDiff;
                                 lastPan = curPos;
                             }
                         }
@@ -286,25 +306,59 @@ namespace TableTopSim.Client.SpecificGame
                             if (add != null && refManager.ContainsAddress(add.Value))
                             {
                                 Sprite s = refManager.GetSprite(add.Value);
-                                if (s.Selectable && thisCursorInfo.SelectedSpriteId != add)
+                                if (thisCursorInfo.SelectedSpriteId != add)
                                 {
-                                    queuedSelectedSprite = refManager.GetAddress(s);
-                                    spriteSelectedChanged = true;
-                                    //Debug.WriteLine("Pick Up");
+                                    var selectInfo = s.OnClick(isAlt);
+                                    int selectAdd = refManager.GetAddress(selectInfo.spriteToSelect);
+                                    if (selectInfo.select && thisCursorInfo.SelectedSpriteId != selectAdd)
+                                    {
+                                        queuedSelectedSprite = selectAdd;
+                                        spriteSelectedChanged = true;
+                                    }
                                 }
                             }
                         }
                         else
                         {
-                            //Debug.WriteLine("Drop");
-                            queuedSelectedSprite = null;
-                            spriteSelectedChanged = true;
+                            int? dropOnSprite = null;
+                            if (Manager.MouseOnSprite != null)
+                            {
+                                if (Manager.MouseOnSprite != thisCursorInfo.SelectedSpriteId)
+                                {
+                                    dropOnSprite = Manager.MouseOnSprite;
+                                }
+                                else
+                                {
+                                    dropOnSprite = Manager.MouseOnBehindSprite;
+                                }
+                            }
+                            int droppedAdd = thisCursorInfo.SelectedSpriteId.Value;
+                            DropSelected(droppedAdd);
+                            if (refManager.ContainsAddress(droppedAdd))
+                            {
+                                bool pushToTop = true;
+                                if (dropOnSprite != null && refManager.ContainsAddress(dropOnSprite.Value) &&
+                                    droppedAdd != dropOnSprite)
+                                {
+                                    Sprite sDropOnSprite = refManager.GetSprite(dropOnSprite.Value);
+                                    pushToTop = !sDropOnSprite.DroppedOn(droppedAdd, isAlt);
+                                }
+                                if(pushToTop)
+                                {
+                                    Sprite droppedS = refManager.GetSprite(droppedAdd);
+                                    if (droppedS.LayerDepth.Count > 0)
+                                    {
+                                        LayerDepth fld = Manager.GetFrontLayerDepth(droppedS.LayerDepth.Count);
+                                        if (fld != null && fld.Count > 0)
+                                        {
+                                            droppedS.LayerDepth[droppedS.LayerDepth.Count - 1] = Extensions.MinDecrement(fld[fld.Count - 1]);
+                                        }
+                                    }
+                                }
+                            }
+                            thisCursorInfo.SelectedSpriteId = null;
                         }
                     }
-                    //else
-                    //{
-                    //Debug.WriteLine("Do Nothing");
-                    //}
                 }
             }
             else
@@ -377,6 +431,7 @@ namespace TableTopSim.Client.SpecificGame
                 {
                     Sprite sprite = refManager.GetSprite(s);
                     Manager.Sprites.Add(s);
+                    var t = sprite.Transform.Parent;
                     sprite.SetRefManager(refManager);
                     sprite.OnPropertyChanged -= OnPropertyChanged;
                     sprite.OnPropertyChanged += OnPropertyChanged;
@@ -443,9 +498,9 @@ namespace TableTopSim.Client.SpecificGame
             shiftSprite.Visiable = Manager.Keyboard.ShiftKey;
             centerSprite.Visiable = Manager.Keyboard.ShiftKey;
 
-            MouseUpdate(Manager.Keyboard.ShiftKey, mouseState, lastMouseState);
+            MouseUpdate(Manager.Keyboard.ShiftKey, Manager.Keyboard.AltKey, mouseState, lastMouseState);
             KeyUpdate(Manager.Keyboard);
-            if(Manager.Keyboard.ShiftKey && mouseWheelUpdate != 0)
+            if (Manager.Keyboard.ShiftKey && mouseWheelUpdate != 0)
             {
                 float scaleValue = Manager.BoardTransform.Scale.X;
                 scaleValue += (float)(-0.0003 * mouseWheelUpdate);
@@ -464,36 +519,36 @@ namespace TableTopSim.Client.SpecificGame
 
                 if (spriteSelectedChanged)
                 {
-                    int? queuedChange = queuedSelectedSprite;
-                    if (queuedChange != null && !refManager.ContainsAddress(queuedChange.Value))
+                    int queuedChange = queuedSelectedSprite;
+                    if (!refManager.ContainsAddress(queuedChange))
                     {
-                        queuedChange = null;
+                        spriteSelectedChanged = false;
                     }
-                    if (queuedChange != null && !CanSelectSprite(queuedChange.Value))
+                    if (!CanSelectSprite(queuedChange))
                     {
-                        queuedChange = null;
+                        spriteSelectedChanged = false;
                     }
-                    if (thisCursorInfo.SelectedSpriteId != null && queuedChange != thisCursorInfo.SelectedSpriteId.Value)
+                    if (spriteSelectedChanged && thisCursorInfo.SelectedSpriteId != null && queuedChange != thisCursorInfo.SelectedSpriteId.Value)
                     {
                         Debug.WriteLine("Drop Cause Queued");
                         DropSelected(thisCursorInfo.SelectedSpriteId.Value);
                     }
 
-                    if (queuedChange != null && queuedChange.Value != thisCursorInfo.SelectedSpriteId)
+                    if (spriteSelectedChanged && queuedChange != thisCursorInfo.SelectedSpriteId)
                     {
-                        Sprite newSelected = refManager.GetSprite(queuedChange.Value);
+                        Sprite newSelected = refManager.GetSprite(queuedChange);
                         Vector2 glbPosition = newSelected.Transform.GetGlobalPosition();
                         float glbRotation = newSelected.Transform.GetGlobalRotation();
                         newSelected.Parent = null;
                         newSelected.Transform.Position = glbPosition - thisCursor.Transform.Position;
                         newSelected.Transform.Rotation = glbRotation;
                         newSelected.Parent = thisCursorInfo.CursorSpriteId;
-                        thisCursorInfo.SelectedSpriteId = queuedChange.Value;
+                        thisCursorInfo.SelectedSpriteId = queuedChange;
                         newSelected.LayerDepth.AddAtStart(1);
+                        thisCursorInfo.SelectedSpriteId = queuedChange;
+                        var tr = newSelected.Transform;
                     }
-                    thisCursorInfo.SelectedSpriteId = queuedChange;
                     spriteSelectedChanged = false;
-                    queuedSelectedSprite = null;
                 }
             }
 
@@ -522,6 +577,13 @@ namespace TableTopSim.Client.SpecificGame
             if (thisCursor != null)
             {
                 thisCursor.Visiable = false;
+            }
+            if (refManager.ContainsAddress(110))
+            {
+                Sprite s = refManager.GetSprite(110);
+                var tr = s.Transform;
+                var p = s.Parent;
+                var v = s.Visiable;
             }
             ignorePropertyChanged = false;
         }

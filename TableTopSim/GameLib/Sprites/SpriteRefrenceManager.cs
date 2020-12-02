@@ -16,12 +16,15 @@ namespace GameLib.Sprites
         public Dictionary<int, ElementReference> ImageElementRefs { get; private set; }
         public ElementReference ImageNotFound { get; private set; }
 
+        public event Action<int> SpriteAdded;
+        Random random;
         public SpriteRefrenceManager(Dictionary<int, ElementReference> imageElementRefs, ElementReference imageNotFound)
         {
             SpriteRefrences = new Dictionary<int, Sprite>();
             SpriteAddresses = new Dictionary<Sprite, int>();
             ImageElementRefs = imageElementRefs;
             ImageNotFound = imageNotFound;
+            random = new Random();
         }
         public void Reset()
         {
@@ -40,7 +43,17 @@ namespace GameLib.Sprites
         {
             return SpriteAddresses[sprite];
         }
-
+        public int AddSprite(Sprite sprite)
+        {
+            int newAdd = random.Next();
+            while (SpriteRefrences.ContainsKey(newAdd))
+            {
+                newAdd = random.Next();
+            }
+            AddSprite(newAdd, sprite);
+            SpriteAdded?.Invoke(newAdd);
+            return newAdd;
+        }
 
         public void AddSprite(int address, Sprite sprite)
         {

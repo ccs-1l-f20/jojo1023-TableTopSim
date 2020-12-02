@@ -82,6 +82,11 @@ namespace GameLib
             TrieNode<T> node = FindNode(key);
             return node!= null && node.Key != null;
         }
+        bool ContainsNode(IEnumerable<int> key)
+        {
+            TrieNode<T> node = FindNode(key);
+            return node != null;
+        }
         public HashSet<int> NextPathKeys(IEnumerable<int> key)
         {
             TrieNode<T> node = FindNode(key);
@@ -95,6 +100,14 @@ namespace GameLib
         {
             root = new TrieNode<T>();
             endNodes.Clear();
+        }
+        public void ClearNodeChildren(IEnumerable<int> key)
+        {
+            TrieNode<T> node = FindNode(key);
+            if(node != null)
+            {
+                node.Children.Clear();
+            }
         }
         //public IEnumerator<KeyValuePair<IEnumerable<int>, T>> GetEnumerator()
         //{

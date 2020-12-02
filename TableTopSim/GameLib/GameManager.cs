@@ -23,7 +23,7 @@ namespace GameLib
         //public event Action OnMouseMove;
         public event Action<KeyInfo> OnKeyUp;
         public event Action<KeyInfo> OnKeyDown;
-        public event Action<TimeSpan, MouseState, MouseState,double> OnUpdate;
+        public event Action<TimeSpan, MouseState, MouseState, double> OnUpdate;
         public Color BackColor { get; set; } = new Color(255, 0, 0);
         List<int> pvtSprites;
         public List<int> Sprites { get => pvtSprites; private set { pvtSprites = value; } }
@@ -37,10 +37,11 @@ namespace GameLib
         public MouseState LastMouseState { get; private set; } = MouseState.Hover;
         public KeyboardState Keyboard { get; }
         public int? MouseOnSprite { get; private set; }
+        public int? MouseOnBehindSprite { get; private set; }
         public SpriteRefrenceManager SpriteRefrenceManager;
         public SpriteRefrenceManager UISpriteRefrenceManager;
 
-        public Transform BoardTransform { get;  set; }
+        public Transform BoardTransform { get; set; }
         public Vector2 BoardTransformOrigin { get; set; }
         Random random = new Random();
         public GameManager(Size size, SpriteRefrenceManager spriteRefrenceManager, int playerId)
@@ -49,12 +50,13 @@ namespace GameLib
             ResetTransform();
 
             MouseOnSprite = null;
+            MouseOnBehindSprite = null;
             Keyboard = new KeyboardState();
             Sprites = new List<int>();
             UiSprites = new List<int>();
             SpriteRefrenceManager = spriteRefrenceManager;
             UISpriteRefrenceManager = new SpriteRefrenceManager(spriteRefrenceManager.ImageElementRefs, spriteRefrenceManager.ImageNotFound);
-            
+
             MouseState = MouseState.Hover;
         }
         public void ResetTransform()
@@ -69,7 +71,7 @@ namespace GameLib
             var originMatrix = CreateMatrix.DenseIdentity<float>(3, 3);
             originMatrix[0, 2] = -BoardTransformOrigin.X;
             originMatrix[1, 2] = -BoardTransformOrigin.Y;
-            var boardTransformWithOrigin = boardTransform * originMatrix; 
+            var boardTransformWithOrigin = boardTransform * originMatrix;
             var invBoardTransform = Transform.InverseTransformMatrix(boardTransformWithOrigin);
             MousePos = Transform.TransformPoint(invBoardTransform, mousePos);
             MouseState = ms;
@@ -77,11 +79,34 @@ namespace GameLib
 
             bool mouseBlocked = false;
             MouseOnSprite = null;
-            var uiSpriteMatries = SortAndUpdateSprites(ref pvtUiSprites, UISpriteRefrenceManager,   false, ref mouseBlocked, elapsedTime, RawMousePos, MouseState);
-            var spriteMatries = SortAndUpdateSprites(ref pvtSprites, SpriteRefrenceManager,         true, ref mouseBlocked, elapsedTime, MousePos, MouseState);
+            MouseOnBehindSprite = null;
+            var uiSpriteMatries = SortAndUpdateSprites(ref pvtUiSprites, UISpriteRefrenceManager, false, ref mouseBlocked, elapsedTime, RawMousePos, MouseState, context);
+            var spriteMatries = SortAndUpdateSprites(ref pvtSprites, SpriteRefrenceManager, true, ref mouseBlocked, elapsedTime, MousePos, MouseState, context);
 
+            //foreach(int i in pvtSprites)
+            //{
+            //    Sprite s = SpriteRefrenceManager.GetSprite(i);
+            //    if(s is SpriteStack)
+            //    {
+            //        SpriteStack ss = (SpriteStack)s;
+            //        var tm = await ss.countText.MeasureText(context);
+            //        Debug.WriteLine("Width sdf: " + tm.Width);
+            //    }
+            //}
 
+            for (int i = Sprites.Count - 1; i >= 0; i--)
+            {
+                int add = Sprites[i];
+                Sprite sprite = SpriteRefrenceManager.GetSprite(add);
+                await sprite.PreDrawUpdate(context);
+            }
 
+            for (int i = UiSprites.Count - 1; i >= 0; i--)
+            {
+                int add = UiSprites[i];
+                Sprite sprite = UISpriteRefrenceManager.GetSprite(add);
+                await sprite.PreDrawUpdate(context);
+            }
 
             await context.BeginBatchAsync();
             await context.SetFillStyleAsync(BackColor.ToString());
@@ -98,7 +123,7 @@ namespace GameLib
                 await sprite.Draw(context, spriteMatries);
             }
 
-            await context.RestoreAsync(); 
+            await context.RestoreAsync();
             await context.SaveAsync();
 
             for (int i = UiSprites.Count - 1; i >= 0; i--)
@@ -113,11 +138,22 @@ namespace GameLib
             LastMouseState = ms;
             Keyboard.StateUpdate();
         }
-
-        Dictionary<int, Matrix<float>> SortAndUpdateSprites(ref List<int> sprites, SpriteRefrenceManager refManager, bool setMouseOnSprite,
-            ref bool mouseBlocked, TimeSpan elapsedTime, Vector2 mousePos, MouseState mouseState)
+        public LayerDepth GetFrontLayerDepth(int ldLength)
         {
-            Dictionary<int, Matrix<float>> spriteMatries = new Dictionary<int, Matrix<float>>();
+            SortSprites(ref pvtSprites, SpriteRefrenceManager);
+            foreach(var s in pvtSprites)
+            {
+                Sprite sprite = SpriteRefrenceManager.GetSprite(s);
+                if(sprite.LayerDepth.Layers.Count == ldLength)
+                {
+                    return sprite.LayerDepth;
+                }
+            }
+            return null;
+        }
+
+        void SortSprites(ref List<int> sprites, SpriteRefrenceManager refManager)
+        {
             Dictionary<int, LayerDepth> spriteLayerDepths = new Dictionary<int, LayerDepth>();
             LayerDepth lastLd = null;
             bool reSort = false;
@@ -140,7 +176,12 @@ namespace GameLib
             {
                 sprites = sprites.OrderBy(s => spriteLayerDepths[s]).ToList();
             }
-
+        }
+        Dictionary<int, Matrix<float>> SortAndUpdateSprites(ref List<int> sprites, SpriteRefrenceManager refManager, bool setMouseOnSprite,
+            ref bool mouseBlocked, TimeSpan elapsedTime, Vector2 mousePos, MouseState mouseState, MyCanvas2DContext context)
+        {
+            SortSprites(ref sprites, refManager);
+            Dictionary<int, Matrix<float>> spriteMatries = new Dictionary<int, Matrix<float>>();
             for (int i = 0; i < sprites.Count; i++)
             {
                 var add = sprites[i];
@@ -155,6 +196,10 @@ namespace GameLib
                             MouseOnSprite = add;
                         }
                         mouseBlocked = true;
+                    }
+                    else if (setMouseOnSprite && MouseOnBehindSprite == null)
+                    {
+                        MouseOnBehindSprite = add;
                     }
                 }
             }

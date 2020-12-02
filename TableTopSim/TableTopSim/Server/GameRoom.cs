@@ -147,9 +147,28 @@ namespace TableTopSim.Server
                     selectedSprite = BitConverter.ToInt32(bytes.Array, bytes.Offset + 1);
                 }
                 bytes.Offset += 5;
+                int addedSpritesLength = BitConverter.ToInt32(bytes.Array, bytes.Offset);
+                bytes.Offset += 4;
+                List<int> addedSpriteIds = null;
+                if (addedSpritesLength > 0)
+                {
+                    addedSpriteIds = GameSerialize.DeserializeGameData<List<int>>(bytes.Slice(0, addedSpritesLength));
+                    bytes.Offset += addedSpritesLength;
+                }
                 lock (gameLockObject)
                 {
-                    if (selectedSprite != null)
+                    if (addedSpriteIds != null)
+                    {
+                        for (int i = 0; i < addedSpriteIds.Count; i++)
+                        {
+                            if (refManager.SpriteRefrences.ContainsKey(addedSpriteIds[i]))
+                            {
+                                canSelect = false;
+                                break;
+                            }
+                        }
+                    }
+                    if (canSelect && selectedSprite != null)
                     {
                         foreach (var k in playerCursors.Keys)
                         {

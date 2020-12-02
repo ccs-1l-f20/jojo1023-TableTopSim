@@ -43,7 +43,7 @@ namespace GameLib.Sprites
             this.size = size;
             this.origin = origin;
         }
-        protected override async Task OverideDraw(MyCanvas2DContext context)
+        protected override async Task OverrideDraw(MyCanvas2DContext context)
         {
             await context.SetFillStyleAsync(Color.ToString());
             await context.FillRectAsync(-Origin.X, -Origin.Y, Size.X, Size.Y);

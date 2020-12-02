@@ -30,9 +30,10 @@ namespace GameLib.Sprites
         //public event Action<Sprite> OnLayerDepthChanged;
         public event Action<Sprite, Vector2, MouseState> OnMouseEnter;
         public event Action<Sprite, Vector2, MouseState> OnMouseLeave;
-        
+
         [GameSerializableData(transformDataId)]
         public Transform Transform { get; internal set; }
+
 
         [GameSerializableData(layerDepthDataId)]
         public LayerDepth LayerDepth { get; internal set; }
@@ -51,6 +52,11 @@ namespace GameLib.Sprites
         [GameSerializableData(5)]
         public float Alpha { get => alpha; set { alpha = value; NotifyPropertyChanged(5); } }
 
+        int? stackableIndex = null;
+
+        [GameSerializableData(6)]
+        public int? StackableIndex { get => stackableIndex; set { stackableIndex = value; NotifyPropertyChanged(6); } }
+
         bool mouseOver = false;
 
 
@@ -62,12 +68,15 @@ namespace GameLib.Sprites
         }
         public static void InitSprite()
         {
-            if(GetDeafaultSprites== null)
+            if (GetDeafaultSprites == null)
             {
                 GetDeafaultSprites = new Dictionary<ObjectTypes, (Func<Sprite> constructor, Type type)>();
                 GetDeafaultSprites.Add(ObjectTypes.RectSprite, (() => new RectSprite(), typeof(RectSprite)));
                 GetDeafaultSprites.Add(ObjectTypes.ImageSprite, (() => new ImageSprite(), typeof(ImageSprite)));
                 GetDeafaultSprites.Add(ObjectTypes.EmptySprite, (() => new EmptySprite(), typeof(EmptySprite)));
+                GetDeafaultSprites.Add(ObjectTypes.SpriteStack, (() => new SpriteStack(), typeof(SpriteStack)));
+                GetDeafaultSprites.Add(ObjectTypes.CircleSprite, (() => new CircleSprite(), typeof(CircleSprite)));
+                GetDeafaultSprites.Add(ObjectTypes.TextSprite, (() => new TextSprite(), typeof(TextSprite)));
                 GameSerialize.AddType<Sprite>(GameSerialize.GenericSerializeFunc, DeserializeSprite, true);
             }
         }
@@ -120,7 +129,7 @@ namespace GameLib.Sprites
                 await context.SetGlobalAlphaAsync(GetGlobalAlpha());
                 Matrix<float> glbTransform = Transform.GetGlobalMatrix(spriteMatries);
                 await context.TransformAsync(glbTransform[0, 0], glbTransform[1, 0], glbTransform[0, 1], glbTransform[1, 1], glbTransform[0, 2], glbTransform[1, 2]);
-                await OverideDraw(context);
+                await OverrideDraw(context);
 
                 await context.RestoreAsync();
             }
@@ -128,7 +137,7 @@ namespace GameLib.Sprites
 
         protected float GetGlobalAlpha()
         {
-            if(Parent != null)
+            if (Parent != null)
             {
                 return Alpha * refManager.GetSprite(Parent.Value).GetGlobalAlpha();
             }
@@ -149,28 +158,19 @@ namespace GameLib.Sprites
             }
             ld.AddTo(LayerDepth);
         }
-        //public async Task Draw(MyCanvas2DContext context, SpriteRefrenceManager refManager)
-        //{
-        //    await context.SaveAsync();
-        //    await context.TranslateAsync(Position.X, Position.Y);
-        //    await context.ScaleAsync(Scale.X, Scale.Y);
-        //    var radians = Extensions.DegreesToRadians(Rotation);
-        //    await context.RotateAsync(radians);
-        //    await OverideDraw(context);
 
-        //    SortChildren(refManager);
-        //    //Children are drawn backwards so index 0 is in front
-        //    for (int i = Children.Count - 1; i >= 0; i--)
-        //    {
-        //        await refManager.GetSprite(Children[i]).Draw(context, refManager);
-        //    }
-        //    await context.RestoreAsync();
-        //    //await context.RotateAsync(-radians);
-        //    //await context.ScaleAsync(1 / Scale.X, 1 / Scale.Y);
-        //    //await context.TranslateAsync(-translateVector.X, -translateVector.Y);
-        //}
-        
-        protected abstract Task OverideDraw(MyCanvas2DContext context);
+        protected static async Task ProtectedDraw(Sprite sprite, MyCanvas2DContext context)
+        {
+            await context.SaveAsync();
+            await context.SetGlobalAlphaAsync(sprite.GetGlobalAlpha());
+            Matrix<float> transformMtx = sprite.Transform.GetMatrix();
+            await context.TransformAsync(transformMtx[0, 0], transformMtx[1, 0], transformMtx[0, 1], transformMtx[1, 1], transformMtx[0, 2], transformMtx[1, 2]);
+            
+            await sprite.OverrideDraw(context);
+
+            await context.RestoreAsync();
+        }
+        protected abstract Task OverrideDraw(MyCanvas2DContext context);
 
         /// <summary>
         /// Shoul Only Be Called By Game Manager
@@ -187,70 +187,44 @@ namespace GameLib.Sprites
             mouseOver = false;
             bool blocking = false;
             Matrix<float> glbMatrix = Transform.GetGlobalMatrix(spriteMatries);
-            if (!mouseBlocked)
+            //if (!mouseBlocked)
+            //{
+            if (PointInHitbox(mousePos, glbMatrix))
             {
-                if(mouseState == MouseState.Down)
+                mouseOver = true;
+                blocking = true;
+                if (!prevMouseOver && !mouseBlocked)
                 {
-
-                }
-                if (PointInHitbox(mousePos, glbMatrix))
-                {
-                    mouseOver = true;
-                    blocking = true;
-                    if (!prevMouseOver)
-                    {
-                        OnMouseEnter?.Invoke(this, mousePos, mouseState);
-                    }
-                }
-                else if (prevMouseOver)
-                {
-                    OnMouseLeave?.Invoke(this, mousePos, mouseState);
+                    OnMouseEnter?.Invoke(this, mousePos, mouseState);
                 }
             }
+            else if (prevMouseOver && !mouseBlocked)
+            {
+                OnMouseLeave?.Invoke(this, mousePos, mouseState);
+            }
+            //}
             return blocking;
         }
+        
+        public virtual Task PreDrawUpdate(MyCanvas2DContext context) { return Task.CompletedTask; }
         protected virtual void OverideUpdate(Vector2 mousePos, MouseState mouseState, TimeSpan elapsedTime) { }
 
-        //(bool mouseOver, Sprite mouseOnSprite) MouseInHitboxOrChildren(Vector2 point, MouseState mouseState, bool mouseBlocked, SpriteRefrenceManager refManager)
-        //{
-        //    bool prevMouseOver = mouseOver;
-        //    Sprite mouseOnSprite = null;
-        //    mouseOver = false;
-        //    foreach (var child in Children)
-        //    {
-        //        var childInfo = refManager.GetSprite(child).MouseInHitboxOrChildren(point, mouseState, mouseBlocked, refManager);
-        //        if (childInfo.mouseOver)
-        //        {
-        //            if (childInfo.mouseOnSprite != null)
-        //            {
-        //                mouseOnSprite = childInfo.mouseOnSprite;
-        //            }
-        //            mouseBlocked = true;
-        //        }
-        //    }
-        //    if (!mouseBlocked && PointInHitbox(point))
-        //    {
-        //        mouseOnSprite = this;
-        //        mouseOver = true;
-        //        if (!prevMouseOver)
-        //        {
-        //            OnMouseEnter?.Invoke(this, point, mouseState);
-        //        }
-        //        mouseBlocked = true;
-        //    }
-        //    if (prevMouseOver && !mouseOver)
-        //    {
-        //        OnMouseLeave?.Invoke(this, point, mouseState);
-        //    }
-        //    return (mouseBlocked, mouseOnSprite);
-        //}
+        protected static bool ProtectedPointInHitbox(Sprite sprite, Vector2 point, Matrix<float> glbMatrix)
+        {
+            return sprite.PointInHitbox(point, glbMatrix);
+        }
         protected abstract bool PointInHitbox(Vector2 point, Matrix<float> glbMatrix);
-        //protected abstract bool MouseEvent(Vector2 mousePos, MouseState mouseState, bool mouseBlocking);
 
         protected static bool PointInRotatedRect(Matrix<float> glbMatrix, Vector2 point, Vector2 size, Vector2 origin)
         {
             point = Transform.TransformPoint(Transform.InverseTransformMatrix(glbMatrix), point);
             return point.X >= -origin.X && point.Y >= -origin.Y && point.X < size.X - origin.X && point.Y < size.Y - origin.Y;
+        }
+        protected static bool PointInCircle(Matrix<float> glbMatrix, Vector2 point, float radius)
+        {
+            point = Transform.TransformPoint(Transform.InverseTransformMatrix(glbMatrix), point);
+            point *= point; 
+            return radius * radius <= point.X + point.Y;
         }
         static Sprite DeserializeSprite(TypeSerializableInfo<Sprite> info, ArrayWithOffset<byte> bytes)
         {
@@ -266,7 +240,24 @@ namespace GameLib.Sprites
         {
             OnPropertyChanged?.Invoke(this, new List<int>() { propertyDataId });
         }
+        public virtual (bool select, Sprite spriteToSelect) OnClick(bool isAlt)
+        {
+            return (Selectable, this);
+        }
 
+        public virtual bool DroppedOn(int add, bool isAlt)
+        {
+            if (isAlt || stackableIndex == null) { return false; }
+            Sprite droppedSprite = refManager.GetSprite(add);
+            if (droppedSprite.stackableIndex != stackableIndex) { return false; }
+            SpriteStack spriteStack = new SpriteStack(refManager, Transform.Position, stackableIndex.Value);
+            spriteStack.LayerDepth = new LayerDepth();
+            spriteStack.LayerDepth.AddTo(LayerDepth);
+            refManager.AddSprite(spriteStack);
+            spriteStack.AddToStack(this, refManager.GetAddress(this));
+            spriteStack.AddToStack(droppedSprite, add);
+            return true;
+        }
     }
     public class EmptySprite : Sprite
     {
@@ -283,7 +274,7 @@ namespace GameLib.Sprites
         }
 
 
-        protected override Task OverideDraw(MyCanvas2DContext context) { return Task.CompletedTask; }
+        protected override Task OverrideDraw(MyCanvas2DContext context) { return Task.CompletedTask; }
 
         protected override bool PointInHitbox(Vector2 point, Matrix<float> glbMatrix)
         {

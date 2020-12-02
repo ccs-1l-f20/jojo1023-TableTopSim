@@ -13,6 +13,9 @@ namespace GameLib
     {
         EmptySprite,
         RectSprite,
-        ImageSprite
+        ImageSprite,
+        SpriteStack,
+        CircleSprite,
+        TextSprite
     }
 }
