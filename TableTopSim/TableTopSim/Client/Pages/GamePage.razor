@@ -10,6 +10,7 @@
 @using GameLib.Sprites
 @using System.Numerics
 @using TableTopSim.Client.SpecificGame
+@using Newtonsoft.Json;
 @inject Uri WebSocketUri
 <img src="/images/ImageNotFound.png" asp-append-version="true" @ref="imageNotFound" style="display:none" />
 @if (imageDtos != null)
@@ -104,7 +105,8 @@
 
         //gameManager.OnUpdate += TestUpdate;
 
-        gameProgram = new GameProgram(size, GlobalData.WebSocket, RoomId, PlayerId, imageElementRefs, imageNotFound);
+        Dictionary<int, StackableDataInfo> stackableInfo = JsonConvert.DeserializeObject<Dictionary<int, StackableDataInfo>>(gameInfo.SerializedStackableInfoDictionary);
+        gameProgram = new GameProgram(size, gameInfo.BackroundColor, GlobalData.WebSocket, RoomId, PlayerId, imageElementRefs, imageNotFound, stackableInfo);
     }
     async Task GetGameImages(int gameId)
     {

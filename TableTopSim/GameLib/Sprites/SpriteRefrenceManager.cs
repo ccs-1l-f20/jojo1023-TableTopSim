@@ -15,15 +15,21 @@ namespace GameLib.Sprites
         public Dictionary<Sprite, int> SpriteAddresses { get; set; }
         public Dictionary<int, ElementReference> ImageElementRefs { get; private set; }
         public ElementReference ImageNotFound { get; private set; }
-
+        public Dictionary<int, StackableDataInfo> StackableInfo { get; private set; }
         public event Action<int> SpriteAdded;
         Random random;
-        public SpriteRefrenceManager(Dictionary<int, ElementReference> imageElementRefs, ElementReference imageNotFound)
+        public SpriteRefrenceManager(Dictionary<int, ElementReference> imageElementRefs, ElementReference imageNotFound,
+            Dictionary<int, StackableDataInfo> stackableInfo)
         {
             SpriteRefrences = new Dictionary<int, Sprite>();
             SpriteAddresses = new Dictionary<Sprite, int>();
             ImageElementRefs = imageElementRefs;
             ImageNotFound = imageNotFound;
+            StackableInfo = stackableInfo;
+            if(StackableInfo == null)
+            {
+                StackableInfo = new Dictionary<int, StackableDataInfo>();
+            }
             random = new Random();
         }
         public void Reset()

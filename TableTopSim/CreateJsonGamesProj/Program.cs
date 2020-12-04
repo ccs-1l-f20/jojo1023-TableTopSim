@@ -51,9 +51,8 @@ namespace CreateJsonGamesProj
                 {PieceHash(ChessPiece.Knight, true), "Chess_nlt45.svg" },
                 {PieceHash(ChessPiece.Pawn, false), "Chess_pdt45.svg" },
                 {PieceHash(ChessPiece.Pawn, true), "Chess_plt45.svg" },
-                {567, "cardBack.png" },
+                //{567, "cardBack.png" },
             };
-            //images.Add(1, "cardBack.png");
             int boardImgId = 100;
             images.Add(boardImgId, "600px-Chess_Board.png");
 
@@ -92,12 +91,12 @@ namespace CreateJsonGamesProj
                 spiteId++;
             }
 
-            var cardS = new FlippableSprite(null, new Vector2(300, 300), false,
-                new ImageSprite(null, Vector2.Zero, PieceHash(ChessPiece.Pawn, true), checkerSize, checkerSize / 2),
-                new ImageSprite(null, Vector2.Zero, 567, new Vector2(338, 469), new Vector2(338 / 2f, 469 / 2f)));
-            cardS.FrontSprite.Transform.Scale *= 1.5f;
-            sprites.Add(spiteId, cardS);
-            spiteId++;
+            //var cardS = new FlippableSprite(null, new Vector2(300, 300), false,
+            //    new ImageSprite(null, Vector2.Zero, PieceHash(ChessPiece.Pawn, true), checkerSize, checkerSize / 2),
+            //    new ImageSprite(null, Vector2.Zero, 567, new Vector2(338, 469), new Vector2(338 / 2f, 469 / 2f)));
+            //cardS.FrontSprite.Transform.Scale *= 1.5f;
+            //sprites.Add(spiteId, cardS);
+            //spiteId++;
 
             int bKnightPath = PieceHash(ChessPiece.Knight, false);
             int wKnightPath = PieceHash(ChessPiece.Knight, true);
@@ -142,7 +141,23 @@ namespace CreateJsonGamesProj
                 spiteId++;
             }
 
-            JsonGame jsonGame = new JsonGame(1, 3, canvasSize, JsonConvert.SerializeObject(sprites), images);
+            Dictionary<int, StackableDataInfo> stackableInfo = new Dictionary<int, StackableDataInfo>();
+            for(int i = 0; i < 5; i++)
+            {
+                ChessPiece cp = (ChessPiece)i;
+                int wId = PieceHash(cp, true);
+                int bId = PieceHash(cp, false);
+                StackableDataInfo wInfo = new StackableDataInfo((checkerSize / 3) * new Vector2(1, -1), 15);
+                wInfo.CountBackColor = new Color(0, 0, 0);
+                wInfo.CountTextColor = new Color(255, 255, 255);
+                StackableDataInfo bInfo = new StackableDataInfo((checkerSize / 3) * new Vector2(1, -1), 15);
+                bInfo.CountBackColor = new Color(255, 255, 255); 
+                bInfo.CountTextColor = new Color(0, 0, 0);
+                stackableInfo.Add(wId, wInfo);
+                stackableInfo.Add(bId, bInfo);
+            }
+
+            JsonGame jsonGame = new JsonGame(1, 3, canvasSize, new Color(0, 0, 255), sprites, images, stackableInfo);
             string jsonGameText = JsonConvert.SerializeObject(jsonGame);
             File.WriteAllText($"../../../../TestData/{gameName}.json", jsonGameText);
         }
@@ -156,7 +171,7 @@ namespace CreateJsonGamesProj
             sprites.Add(1, new RectSprite(null, new Vector2(200, 200), new Vector2(10, 10), new Color(255, 0, 255), new Vector2(0, 0), 45));
             sprites.Add(2, new RectSprite(null, new Vector2(500, 500), new Vector2(50, 50), new Color(0, 0, 0), new Vector2(0, 0), 0));
             sprites.Add(3, new RectSprite(null, new Vector2(600, 500), new Vector2(50, 50), new Color(128, 128, 128), new Vector2(0, 0), 0));
-            JsonGame jsonGame = new JsonGame(1, 3, canvasSize, JsonConvert.SerializeObject(sprites), images);
+            JsonGame jsonGame = new JsonGame(1, 3, canvasSize, new Color(50, 50, 200), sprites, images, new Dictionary<int, StackableDataInfo>());
             string jsonGameText = JsonConvert.SerializeObject(jsonGame);
             File.WriteAllText($"../../../../TestData/{gameName}.json", jsonGameText);
             //sprites.Add(4, new ImageSprite(null, new Vector2(500, 100), 2, new Vector2(75, 75), Vector2.Zero));

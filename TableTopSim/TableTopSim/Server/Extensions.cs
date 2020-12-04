@@ -15,7 +15,10 @@ namespace TableTopSim.Server
         {
             try
             {
-                await connection.OpenAsync();
+                if (connection.State != System.Data.ConnectionState.Open)
+                {
+                    await connection.OpenAsync();
+                }
                 return true;
             }
             catch

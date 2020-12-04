@@ -44,9 +44,10 @@ namespace GameLib
         public Transform BoardTransform { get; set; }
         public Vector2 BoardTransformOrigin { get; set; }
         Random random = new Random();
-        public GameManager(Size size, SpriteRefrenceManager spriteRefrenceManager, int playerId)
+        public GameManager(Size size, Color backroundColor, SpriteRefrenceManager spriteRefrenceManager, int playerId)
         {
             this.size = size;
+            BackColor = backroundColor;
             ResetTransform();
 
             MouseOnSprite = null;
@@ -55,7 +56,8 @@ namespace GameLib
             Sprites = new List<int>();
             UiSprites = new List<int>();
             SpriteRefrenceManager = spriteRefrenceManager;
-            UISpriteRefrenceManager = new SpriteRefrenceManager(spriteRefrenceManager.ImageElementRefs, spriteRefrenceManager.ImageNotFound);
+            UISpriteRefrenceManager = new SpriteRefrenceManager(spriteRefrenceManager.ImageElementRefs, spriteRefrenceManager.ImageNotFound,
+                new Dictionary<int, StackableDataInfo>());
 
             MouseState = MouseState.Hover;
         }

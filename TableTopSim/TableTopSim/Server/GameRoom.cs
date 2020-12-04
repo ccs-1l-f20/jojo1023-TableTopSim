@@ -24,7 +24,7 @@ namespace TableTopSim.Server
 {
     class PlayerUpdateRoomData
     {
-        readonly int FullUpdateRate = 1;
+        readonly int FullUpdateRate = 15;
         //public object LockObject { get; set; }
         public PathTrie<object> UpdatePaths { get; set; }
         int pUpdateCounter = 0;
@@ -56,7 +56,7 @@ namespace TableTopSim.Server
         public event Func<int, Task> DeleteRoom;
         public GameRoom(int roomId, int initPlayerId, int gameId, WebSocket initPlayerWs)
         {
-            refManager = new SpriteRefrenceManager(new Dictionary<int, ElementReference>(), new ElementReference());
+            refManager = new SpriteRefrenceManager(new Dictionary<int, ElementReference>(), new ElementReference(), new Dictionary<int, StackableDataInfo>());
 
             GameStarted = false;
             RoomId = roomId;

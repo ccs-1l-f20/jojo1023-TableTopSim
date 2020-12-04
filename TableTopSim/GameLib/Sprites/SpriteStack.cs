@@ -17,6 +17,7 @@ namespace GameLib.Sprites
         public List<int> Stack { get; set; }
         CircleSprite countCircle = new CircleSprite(null, Vector2.Zero, 10, new Color(80, 80, 80));
         public TextSprite countText = new TextSprite(null, "0", new Color(255, 255, 255), "100px arial", Vector2.Zero, Vector2.Zero);
+        StackableDataInfo stackableInfo = null;
         static SpriteStack()
         {
             GameSerialize.AddType<SpriteStack>(GameSerialize.GenericSerializeFunc, GameSerialize.GenericDeserializeFunc, GameSerialize.CustomGenericDeserializeFunc);
@@ -31,12 +32,57 @@ namespace GameLib.Sprites
         {
             Stack = new List<int>();
             StackableIndex = stackableIndex;
+            if (refManager != null && refManager.StackableInfo.ContainsKey(stackableIndex))
+            {
+                UpdateStackableInfo(refManager.StackableInfo[stackableIndex]);
+            }
+            else
+            {
+                UpdateStackableInfo(null);
+            }
         }
+        public override void SetRefManager(SpriteRefrenceManager refManager)
+        {
+            base.SetRefManager(refManager);
+            if (StackableIndex != null)
+            {
+                if (refManager != null && refManager.StackableInfo.ContainsKey(StackableIndex.Value))
+                {
+                    UpdateStackableInfo(refManager.StackableInfo[StackableIndex.Value]);
+                }
+                else
+                {
+                    UpdateStackableInfo(null);
+                }
+            }
+        }
+
+        void UpdateStackableInfo(StackableDataInfo stackableInfo)
+        {
+            this.stackableInfo = stackableInfo;
+            if (stackableInfo != null)
+            {
+                countCircle.Visiable = stackableInfo.ShowCount;
+                countText.Visiable = stackableInfo.ShowCount;
+                countCircle.Transform.Position = stackableInfo.CountPosition;
+                countText.Transform.Position = stackableInfo.CountPosition;
+                countCircle.Radius = stackableInfo.CountRadius;
+                countText.Color = stackableInfo.CountTextColor;
+                countCircle.Color = stackableInfo.CountBackColor;
+            }
+        }
+
         public override async Task PreDrawUpdate(MyCanvas2DContext context)
         {
             countText.Text = Stack.Count.ToString();
-            await countCircle.PreDrawUpdate(context);
-            await countText.PreDrawUpdate(context);
+            if (countCircle.Visiable)
+            {
+                await countCircle.PreDrawUpdate(context);
+            }
+            if (countText.Visiable)
+            {
+                await countText.PreDrawUpdate(context);
+            }
         }
 
         protected override async Task OverrideDraw(MyCanvas2DContext context)
@@ -46,10 +92,13 @@ namespace GameLib.Sprites
             Sprite s = refManager.GetSprite(Stack[Stack.Count - 1]);
             await ProtectedDraw(s, context);
 
-            float maxTextLength = countCircle.Radius * countCircle.Transform.Scale.X * 2 - 10;
+            float maxTextLength = countCircle.Radius * countCircle.Transform.Scale.X * 2 - 15;
             countText.Transform.Scale = new Vector2((float)(maxTextLength / countText.TextWidth));
-            await ProtectedDraw(countCircle, context);
-            await ProtectedDraw(countText, context);
+            if (countCircle.Visiable && countText.Visiable)
+            {
+                await ProtectedDraw(countCircle, context);
+                await ProtectedDraw(countText, context);
+            }
         }
 
         protected override bool PointInHitbox(Vector2 point, Matrix<float> glbMatrix)
@@ -74,16 +123,52 @@ namespace GameLib.Sprites
             }
             return (false, null);
         }
+        public static bool CanStack(Sprite s1, Sprite s2, SpriteRefrenceManager refrenceManager)
+        {
+            if (s1.StackableIndex == null || s1.StackableIndex != s2.StackableIndex) { return false; }
+            if (refrenceManager != null && refrenceManager.StackableInfo.ContainsKey(s1.StackableIndex.Value))
+            {
+                StackableDataInfo stackableInfo = refrenceManager.StackableInfo[s1.StackableIndex.Value];
+                if (stackableInfo.Flippable)
+                {
+                    if (!(s1 is FlippableSprite || s1 is SpriteStack)) { return false; }
+                    if (!(s2 is FlippableSprite || s2 is SpriteStack)) { return false; }
+                }
+                if (stackableInfo.RotationMultiple != null)
+                {
+                    if (s1.Transform.Rotation % stackableInfo.RotationMultiple.Value != s2.Transform.Rotation % stackableInfo.RotationMultiple.Value)
+                    { return false; }
+                }
+            }
+            return true;
+        }
         public override bool DroppedOn(int add, bool isAlt)
         {
             if (!isAlt && refManager.ContainsAddress(add))
             {
                 Sprite s = refManager.GetSprite(add);
-                if (s.StackableIndex != null && s.StackableIndex == StackableIndex)
+                if (CanStack(this, s, refManager))
                 {
                     AddToStack(s, add);
                     return true;
                 }
+                //if (s.StackableIndex != null && s.StackableIndex == StackableIndex)
+                //{
+                //    if (stackableInfo != null)
+                //    {
+                //        if (stackableInfo.Flippable && !(s is FlippableSprite))
+                //        {
+                //            return false;
+                //        }
+                //        if (stackableInfo.RotationMultiple != null && Stack.Count > 0)
+                //        {
+                //            if (Transform.Rotation % stackableInfo.RotationMultiple != s.Transform.Rotation % stackableInfo.RotationMultiple)
+                //            { return false; }
+                //        }
+                //    }
+                //    AddToStack(s, add);
+                //    return true;
+                //}
             }
             return false;
         }
@@ -159,7 +244,7 @@ namespace GameLib.Sprites
                 {
                     Random random = new Random();
                     List<int> newStack = new List<int>();
-                    while(Stack.Count > 0)
+                    while (Stack.Count > 0)
                     {
                         int rnd = random.Next(0, Stack.Count);
                         newStack.Add(Stack[rnd]);

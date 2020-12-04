@@ -142,7 +142,7 @@ Game Name:
         JsonGame jg;
         try
         {
-            jg = JsonConvert.DeserializeObject<JsonGame>(jsonFileText);
+            jg = JsonConvert.DeserializeObject<JsonGame>(jsonFileText, new SpriteJsonConverter());
         }
         catch (Exception)
         {
@@ -180,27 +180,27 @@ Game Name:
             GlobalData.ShowMessage("Image Names Cannot Be Null");
             return;
         }
-        if (jg.SerializedSprites == null)
+        if (jg.Sprites == null)
         {
             addingGame = false;
-            GlobalData.ShowMessage("SerializedSprites Cannot Be Null");
+            GlobalData.ShowMessage("Sprites Cannot Be Null");
             return;
         }
-        else
-        {
-            try
-            {
-                var desSprites = JsonConvert.DeserializeObject<Dictionary<int, Sprite>>(jg.SerializedSprites, new SpriteJsonConverter());
-            }
-            catch (Exception e)
-            {
-                string st = e.StackTrace;
-                string m = e.Message;
-                addingGame = false;
-                GlobalData.ShowMessage("Issue Deserializing Sprites Json");
-                return;
-            }
-        }
+        //else
+        //{
+        //    try
+        //    {
+        //        var desSprites = JsonConvert.DeserializeObject<Dictionary<int, Sprite>>(jg.SerializedSprites, new SpriteJsonConverter());
+        //    }
+        //    catch (Exception e)
+        //    {
+        //        string st = e.StackTrace;
+        //        string m = e.Message;
+        //        addingGame = false;
+        //        GlobalData.ShowMessage("Issue Deserializing Sprites Json");
+        //        return;
+        //    }
+        //}
         Dictionary<int, ImageDto> imagesToAdd = new Dictionary<int, ImageDto>();
 
         foreach (var k in jg.ImageNames.Keys)
@@ -216,7 +216,7 @@ Game Name:
             imagesToAdd.Add(k, new ImageDto(k, image.Format, image.Image));
         }
 
-        GameDataDto gameDataDto = new GameDataDto(gameName.Trim(), (int)jg.CanvasSize.Width, (int)jg.CanvasSize.Height, jg.MinPlayers, jg.MaxPlayers, jg.SerializedSprites);
+        GameDataDto gameDataDto = new GameDataDto(gameName.Trim(), jg);
 
 
         int? gameId = null;

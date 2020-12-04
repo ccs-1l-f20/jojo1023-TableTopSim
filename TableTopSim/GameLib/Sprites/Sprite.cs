@@ -170,7 +170,7 @@ namespace GameLib.Sprites
             await context.SetGlobalAlphaAsync(sprite.GetGlobalAlpha());
             Matrix<float> transformMtx = sprite.Transform.GetMatrix();
             await context.TransformAsync(transformMtx[0, 0], transformMtx[1, 0], transformMtx[0, 1], transformMtx[1, 1], transformMtx[0, 2], transformMtx[1, 2]);
-            
+
             await sprite.OverrideDraw(context);
 
             await context.RestoreAsync();
@@ -229,7 +229,7 @@ namespace GameLib.Sprites
         protected static bool PointInCircle(Matrix<float> glbMatrix, Vector2 point, float radius)
         {
             point = Transform.TransformPoint(Transform.InverseTransformMatrix(glbMatrix), point);
-            point *= point; 
+            point *= point;
             return radius * radius <= point.X + point.Y;
         }
         static Sprite DeserializeSprite(TypeSerializableInfo<Sprite> info, ArrayWithOffset<byte> bytes)
@@ -255,7 +255,7 @@ namespace GameLib.Sprites
         {
             if (isAlt || stackableIndex == null) { return false; }
             Sprite droppedSprite = refManager.GetSprite(add);
-            if (droppedSprite.stackableIndex != stackableIndex) { return false; }
+            if (!SpriteStack.CanStack(this, droppedSprite, refManager)) { return false; }
             SpriteStack spriteStack = new SpriteStack(refManager, Transform.Position, stackableIndex.Value);
             spriteStack.LayerDepth = new LayerDepth();
             spriteStack.LayerDepth.AddTo(LayerDepth);

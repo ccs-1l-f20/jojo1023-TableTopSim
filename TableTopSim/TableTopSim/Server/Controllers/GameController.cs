@@ -6,6 +6,7 @@ using System.Data.SqlClient;
 using System.Linq;
 using System.Threading.Tasks;
 using DataLayer;
+using GameLib;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
@@ -32,6 +33,10 @@ namespace TableTopSim.Server.Controllers
             command.Parameters.AddWithValue("@MinPlayers", gameData.MinPlayers);
             command.Parameters.AddWithValue("@MaxPlayers", gameData.MaxPlayers);
             command.Parameters.AddWithValue("@SpriteDictionary", gameData.SerializedSpriteDictionary);
+            command.Parameters.AddWithValue("@StackableInfo", gameData.SerializedStackableInfoDictionary);
+            command.Parameters.AddWithValue("@BackroundR", (int)gameData.BackroundColor.R);
+            command.Parameters.AddWithValue("@BackroundG", (int)gameData.BackroundColor.G);
+            command.Parameters.AddWithValue("@BackroundB", (int)gameData.BackroundColor.B);
 
             if (!(await connection.TryOpenAsync())) { return null; }
 
@@ -100,7 +105,7 @@ namespace TableTopSim.Server.Controllers
             var dr = await command.ExecuteReaderAsync();
             while (await dr.ReadAsync())
             {
-                games.Add((int)dr["GameId"], new GameDataDto((string)dr["Name"], 0, 0, (int)dr["MinPlayers"], (int)dr["MaxPlayers"], null));
+                games.Add((int)dr["GameId"], new GameDataDto((string)dr["Name"], 0, 0, (int)dr["MinPlayers"], (int)dr["MaxPlayers"], new Color(), null, null));
             }
             connection.Close();
             return JsonConvert.SerializeObject(games);
@@ -122,7 +127,9 @@ namespace TableTopSim.Server.Controllers
             GameDataDto game = null;
             if (await dr.ReadAsync())
             {
-                game = new GameDataDto((string)dr["Name"], (int)dr["Width"], (int)dr["Height"], (int)dr["MinPlayers"], (int)dr["MaxPlayers"], (string)dr["SpriteDictionary"]);
+                Color backColor = new Color((byte)((int)dr["backroundr"]), (byte)((int)dr["backroundg"]), (byte)((int)dr["backroundb"]));
+                game = new GameDataDto((string)dr["Name"], (int)dr["Width"], (int)dr["Height"], (int)dr["MinPlayers"], (int)dr["MaxPlayers"], backColor,
+                    (string)dr["SpriteDictionary"], (string)dr["StackableInfo"]);
             }
             connection.Close();
             return game;

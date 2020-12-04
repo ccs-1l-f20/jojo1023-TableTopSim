@@ -35,13 +35,13 @@ namespace TableTopSim.Client.SpecificGame
         Size size;
         RectSprite shiftSprite;
         RectSprite centerSprite;
-        internal GameProgram(Size size, MyClientWebSocket ws, int roomId, int playerId,
-            Dictionary<int, ElementReference> imageElementRefs, ElementReference imageNotFound)
+        internal GameProgram(Size size, Color backroundColor, MyClientWebSocket ws, int roomId, int playerId,
+            Dictionary<int, ElementReference> imageElementRefs, ElementReference imageNotFound, Dictionary<int, StackableDataInfo> stackableInfo)
         //ElementReference cardBack, ElementReference king, ElementReference queen)
         {
             CursorInfo.Init();
             this.size = size;
-            Manager = new GameManager(size, new SpriteRefrenceManager(imageElementRefs, imageNotFound), playerId);
+            Manager = new GameManager(size, backroundColor, new SpriteRefrenceManager(imageElementRefs, imageNotFound, stackableInfo), playerId);
             refManager.SpriteAdded += SpriteAdded;
 
             uiRefManager.AddSprite(0,

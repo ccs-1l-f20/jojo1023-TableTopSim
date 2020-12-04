@@ -12,19 +12,25 @@ namespace DataLayer
     {
         public Dictionary<int, string> ImageNames { get; set; } = new Dictionary<int, string>();
         //public Dictionary<int, Sprite> Sprites { get; set; } = new Dictionary<int, Sprite>();
-        public string SerializedSprites { get; set; }
+        public Dictionary<int, Sprite> Sprites { get; set; }
         public Size CanvasSize { get; set; }
         public int MinPlayers { get; set; }
         public int MaxPlayers { get; set; }
+        public Color BackroundColor { get; set; }
+        public Dictionary<int, StackableDataInfo> StackableDataInfo { get; set; }
+
         [JsonConstructor]
         public JsonGame() { }
-        public JsonGame(int minPlayers, int maxPlayers, Size canvasSize, string serializedSprites, Dictionary<int, string> imageNames) 
+        public JsonGame(int minPlayers, int maxPlayers, Size canvasSize, Color backroundColor, Dictionary<int, Sprite> sprites, Dictionary<int, string> imageNames, 
+            Dictionary<int, StackableDataInfo> stackableDataInfo) 
         {
             MinPlayers = minPlayers;
             MaxPlayers = maxPlayers;
             CanvasSize = canvasSize;
-            SerializedSprites = serializedSprites;
+            Sprites = sprites;
             ImageNames = imageNames;
+            BackroundColor = backroundColor;
+            StackableDataInfo = stackableDataInfo;
         }
     }
 }
