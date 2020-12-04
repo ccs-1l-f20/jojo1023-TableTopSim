@@ -24,7 +24,7 @@ namespace TableTopSim.Server
 {
     class PlayerUpdateRoomData
     {
-        readonly int FullUpdateRate = 10;
+        readonly int FullUpdateRate = 1;
         //public object LockObject { get; set; }
         public PathTrie<object> UpdatePaths { get; set; }
         int pUpdateCounter = 0;
