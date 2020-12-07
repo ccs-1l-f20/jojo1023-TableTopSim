@@ -1,6 +1,7 @@
 ﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
@@ -29,8 +30,44 @@ namespace DataLayer
         }
         public static async Task<bool> AddGameImages(HttpClient http, int gameId, Dictionary<int, ImageDto> images)
         {
-            var response = await http.PostAsJsonAsync($"api/Game/AddGameImages/{gameId}", JsonConvert.SerializeObject(images));
-            return response.IsSuccessStatusCode && response.StatusCode == System.Net.HttpStatusCode.OK;
+            //try
+            //{
+            //var oldTo = http.Timeout;
+            //http.Timeout = oldTo * 20;
+            bool succsess = true;
+            if (images.Count > 0)
+            {
+                bool first = true;
+                foreach (var id in images.Keys)
+                {
+                    ImageDto image = images[id];
+                    image.Id = id;
+                    HttpResponseMessage response;
+                    if (first)
+                    {
+                        response = await http.PostAsJsonAsync($"api/Game/AddGameImages/{gameId}", JsonConvert.SerializeObject(new Dictionary<int, ImageDto>() { { id, image } }));
+                        first = false;
+                    }
+                    else
+                    {
+                        response = await http.PostAsJsonAsync($"api/Game/AddGameImage/{gameId}", JsonConvert.SerializeObject(image));
+                    }
+                    //http.Timeout = oldTo;
+                    succsess = response.IsSuccessStatusCode && response.StatusCode == System.Net.HttpStatusCode.OK;
+                    if (!succsess)
+                    {
+                        break;
+                    }
+                }
+            }
+            return succsess;
+            //}
+            //catch(Exception e)
+            //{
+            //    Debug.WriteLine(e.Message);
+            //    Debug.WriteLine(e.StackTrace);
+            //    throw e;
+            //}
         }
         public static async Task<bool> DeleteGame(HttpClient http, int gameId)
         {

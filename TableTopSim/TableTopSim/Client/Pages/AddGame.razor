@@ -233,7 +233,7 @@ Game Name:
             return;
         }
 
-        if (await ReTryer.Try(300, 3, async () =>
+        if (await ReTryer.Try(1000, 3, async () =>
         {
             return await GameDL.AddGameImages(Http, gameId.Value, imagesToAdd);
         }))

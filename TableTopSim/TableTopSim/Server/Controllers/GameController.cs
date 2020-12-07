@@ -67,6 +67,29 @@ namespace TableTopSim.Server.Controllers
             connection.Close();
             return Ok();
         }
+
+        [HttpPost("AddGameImage/{gameId}")]
+        public async Task<IActionResult> AddGameImage(int gameId, [FromBody] string imageStr)
+        {
+            ImageDto image = JsonConvert.DeserializeObject<ImageDto>(imageStr);
+            if (!(await connection.TryOpenAsync())) { return BadRequest(); }
+
+            //await DeleteGameImages(gameId, connection);
+
+            //foreach (var k in images.Keys)
+            //{
+                //var image = images[k];
+                bool s = await AddGameImage(gameId, image.Id, image, connection);
+                if (!s)
+                {
+                    connection.Close();
+                    return BadRequest();
+                }
+            //}
+
+            connection.Close();
+            return Ok();
+        }
         static async Task DeleteGameImages(int gameId, DbConnection connection)
         {
             DbCommand command = connection.GetDbCommand("uspDeleteGameImages");
