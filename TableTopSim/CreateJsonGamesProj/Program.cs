@@ -198,7 +198,7 @@ namespace CreateJsonGamesProj
             //string cardSuffex = ".png";
             //List<List<int>> cardImages = new List<List<int>>();
             //List<int> nobelImages = new List<int>();
-            Vector2 boardPadding = new Vector2(1000, 1000);
+            Vector2 boardPadding = new Vector2(1500, 1500);
             float padding = 30;
             Vector2 cardSize = new Vector2(491, 692);
             Vector2 nobelSize = new Vector2(470, 470);
