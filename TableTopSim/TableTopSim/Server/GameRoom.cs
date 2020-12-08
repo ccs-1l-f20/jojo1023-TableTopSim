@@ -54,6 +54,7 @@ namespace TableTopSim.Server
         bool roomInit = false;
         DateTime lastUpdate;
         public event Func<int, Task> DeleteRoom;
+        Vector2 gameSize;
         public GameRoom(int roomId, int initPlayerId, int gameId, WebSocket initPlayerWs)
         {
             refManager = new SpriteRefrenceManager(new Dictionary<int, ElementReference>(), new ElementReference(), new Dictionary<int, StackableDataInfo>());
@@ -76,6 +77,7 @@ namespace TableTopSim.Server
             {
                 throw new NullReferenceException($"Cound't Get Game: {GameId}");
             }
+            gameSize = new Vector2(gameData.Width, gameData.Height); 
             var spriteData = JsonConvert.DeserializeObject<Dictionary<int, Sprite>>(gameData.SerializedSpriteDictionary, new SpriteJsonConverter());
             foreach (var k in spriteData.Keys)
             {
@@ -171,9 +173,25 @@ namespace TableTopSim.Server
             await SendToRoom(sendBytes);
             //CancellationToken ct = cts.Token;
             playerCursors = new Dictionary<int, CursorInfo>();
+            List<Color> cursorColors = new List<Color>();
+            cursorColors.Add(new Color(255, 255, 0));
+            cursorColors.Add(new Color(3, 211, 252));
+            cursorColors.Add(new Color(255, 30, 30));
+            cursorColors.Add(new Color(0, 153, 71));
+            cursorColors.Add(new Color(255, 10, 198));
+            cursorColors.Add(new Color(255, 119, 0));
+            List<Color> cursorColorsRemoved = new List<Color>(cursorColors);
+            Vector2 cursorSize = new Vector2(Math.Min(gameSize.X, gameSize.Y), Math.Min(gameSize.X, gameSize.Y) * 2) / 200;
             foreach (var pId in PlayerWebSockets.Keys)
             {
-                RectSprite cursor = new RectSprite(refManager, new Vector2(0, 0), new Vector2(8, 16), new Color(200, 200, 200), Vector2.Zero, 0) { Selectable = false };
+                if(cursorColorsRemoved.Count == 0)
+                {
+                    cursorColorsRemoved = new List<Color>(cursorColors);
+                }
+                int rnd = random.Next(0, cursorColorsRemoved.Count);
+                Color c = cursorColorsRemoved[rnd];
+                cursorColorsRemoved.RemoveAt(rnd);
+                RectSprite cursor = new RectSprite(refManager, new Vector2(0, 0), cursorSize, c, Vector2.Zero, 0) { Selectable = false };
                 cursor.Transform.Scale *= 1.15f;
                 int cAd = AddSprite(cursor);
                 cursor.LayerDepth[0] = -1;

@@ -527,12 +527,26 @@ namespace TableTopSim.Client.SpecificGame
 
             MouseUpdate(Manager.Keyboard.ShiftKey, Manager.Keyboard.AltKey, mouseState, lastMouseState); 
             KeyUpdate(Manager.Keyboard);
-            if (Manager.Keyboard.ShiftKey && mouseWheelUpdate != 0)
+            if (Manager.Keyboard.ShiftKey)
             {
-                float scaleValue = Manager.BoardTransform.Scale.X;
-                scaleValue += (float)(-0.0003 * mouseWheelUpdate);
-                scaleValue = Math.Max(0.0001f, scaleValue);
-                Manager.BoardTransform.Scale = new Vector2(scaleValue, scaleValue);
+                if (mouseWheelUpdate == 0)
+                {
+                    if(Manager.Keyboard.ContainsKeyCode("ArrowUp") && Manager.Keyboard["ArrowUp"].Down && !Manager.Keyboard["ArrowUp"].LastDown)
+                    {
+                        mouseWheelUpdate -= 100;
+                    }
+                    if (Manager.Keyboard.ContainsKeyCode("ArrowDown") && Manager.Keyboard["ArrowDown"].Down && !Manager.Keyboard["ArrowDown"].LastDown)
+                    {
+                        mouseWheelUpdate += 100;
+                    }
+                }
+                if (mouseWheelUpdate != 0)
+                {
+                    float scaleValue = Manager.BoardTransform.Scale.X;
+                    scaleValue += (float)(-0.0003 * mouseWheelUpdate);
+                    scaleValue = Math.Max(0.0001f, scaleValue);
+                    Manager.BoardTransform.Scale = new Vector2(scaleValue, scaleValue);
+                }
             }
 
             if (thisCursor != null)
