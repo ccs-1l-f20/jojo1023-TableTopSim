@@ -111,6 +111,7 @@
     async Task GetGameImages(int gameId)
     {
         imageDtos = await ReTryer.Try(300, 3, async () => await GameDL.GetGameImages(Http, thisPlayer.GameId));
+        System.Diagnostics.Debug.WriteLine("Loaded Images Is Null:" + (imageDtos == null));
         if (imageDtos != null)
         {
             imageElementRefs.Clear();
