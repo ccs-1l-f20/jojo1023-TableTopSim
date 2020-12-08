@@ -201,7 +201,9 @@ namespace CreateJsonGamesProj
             Vector2 boardPadding = new Vector2(1500, 1500);
             float padding = 30;
             Vector2 cardSize = new Vector2(491, 692);
+            Vector2 cardSizeImg = new Vector2(200, 282);
             Vector2 nobelSize = new Vector2(470, 470);
+            Vector2 nobelSizeImg = new Vector2(148, 148);
             Vector2 coinSize = new Vector2(335, 335);
             int cardsI_Id = imageId;
             images.Add(cardsI_Id, "CardsI.png");
@@ -215,11 +217,11 @@ namespace CreateJsonGamesProj
             List<(int imgId, int index)> cardImages = new List<(int imgId, int index)>();
             Dictionary<int, RectangleF> backSourceRects = new Dictionary<int, RectangleF>();
             for(int i = 0; i < 40; i++) { cardImages.Add((cardsI_Id, i)); }
-            backSourceRects.Add(cardsI_Id, new RectangleF(cardSize.X * 40, 0, cardSize.X, cardSize.Y));
+            backSourceRects.Add(cardsI_Id, new RectangleF(cardSizeImg.X * 40, 0, cardSizeImg.X, cardSizeImg.Y));
             for (int i = 0; i < 30; i++) { cardImages.Add((cardsII_Id, i)); }
-            backSourceRects.Add(cardsII_Id, new RectangleF(cardSize.X * 30, 0, cardSize.X, cardSize.Y));
+            backSourceRects.Add(cardsII_Id, new RectangleF(cardSizeImg.X * 30, 0, cardSizeImg.X, cardSizeImg.Y));
             for (int i = 0; i < 20; i++) { cardImages.Add((cardsIII_Id, i)); }
-            backSourceRects.Add(cardsIII_Id, new RectangleF(cardSize.X * 20, 0, cardSize.X, cardSize.Y));
+            backSourceRects.Add(cardsIII_Id, new RectangleF(cardSizeImg.X * 20, 0, cardSizeImg.X, cardSizeImg.Y));
             int nobels_Id = imageId;
             images.Add(nobels_Id, "Nobels.png");
             imageId++;
@@ -293,7 +295,7 @@ namespace CreateJsonGamesProj
                 }
                 (SpriteStack deck, int stackSpriteId) = decks[imgId];
                 FlippableSprite flippableSprite = new FlippableSprite(null, Vector2.Zero, false,
-                        new ImageSprite(null, Vector2.Zero, imgId, cardSize, cardSize / 2, 0, new RectangleF(cardSize.X*index, 0, cardSize.X, cardSize.Y)),
+                        new ImageSprite(null, Vector2.Zero, imgId, cardSize, cardSize / 2, 0, new RectangleF(cardSizeImg.X*index, 0, cardSizeImg.X, cardSizeImg.Y)),
                         new ImageSprite(null, Vector2.Zero, imgId, cardSize, cardSize / 2, 0, backSourceRects[imgId]))
                 { StackableIndex = imgId };
 
@@ -321,11 +323,11 @@ namespace CreateJsonGamesProj
             sprites.Add(nobelStackId, nobelStack);
             spriteId++;
             int nobelCount = 10;
-            RectangleF nobelBackSource = new RectangleF(nobelSize.X * nobelCount, 0, nobelSize.X, nobelSize.Y);
+            RectangleF nobelBackSource = new RectangleF(nobelSizeImg.X * nobelCount, 0, nobelSizeImg.X, nobelSizeImg.Y);
             for(int i = 0; i < nobelCount; i++)
             {
                 FlippableSprite flippableSprite = new FlippableSprite(null, Vector2.Zero, false,
-                        new ImageSprite(null, Vector2.Zero, nobels_Id, nobelSize, nobelSize / 2, 0, new RectangleF(nobelSize.X * i, 0, nobelSize.X, nobelSize.Y)),
+                        new ImageSprite(null, Vector2.Zero, nobels_Id, nobelSize, nobelSize / 2, 0, new RectangleF(nobelSizeImg.X * i, 0, nobelSizeImg.X, nobelSizeImg.Y)),
                         new ImageSprite(null, Vector2.Zero, nobels_Id, nobelSize, nobelSize / 2, 0, nobelBackSource))
                 { StackableIndex = nobelStackIndex };
 

@@ -170,8 +170,8 @@ namespace TableTopSim.Server.Controllers
             {
                 int imgId = (int)dr["ImageId"];
                 var img = new ImageDto(imgId, (string)dr["Format"], (byte[])dr["Image"]);
-                //img.UpdateUrl();
-                //img.Image = null;
+                img.UpdateUrl();
+                img.Image = null;
                 images.Add(imgId, img);
             }
             connection.Close();
