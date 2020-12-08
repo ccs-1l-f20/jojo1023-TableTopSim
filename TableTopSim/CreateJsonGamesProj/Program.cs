@@ -205,23 +205,23 @@ namespace CreateJsonGamesProj
             Vector2 nobelSize = new Vector2(470, 470);
             Vector2 nobelSizeImg = new Vector2(148, 148);
             Vector2 coinSize = new Vector2(335, 335);
-            int cardsI_Id = imageId;
-            images.Add(cardsI_Id, "CardsI.png");
+            int cardsIII_Id = imageId;
+            images.Add(cardsIII_Id, "CardsIII.png");
             imageId++;
             int cardsII_Id = imageId;
             images.Add(cardsII_Id, "CardsII.png");
             imageId++;
-            int cardsIII_Id = imageId;
-            images.Add(cardsIII_Id, "CardsIII.png");
+            int cardsI_Id = imageId;
+            images.Add(cardsI_Id, "CardsI.png");
             imageId++;
             List<(int imgId, int index)> cardImages = new List<(int imgId, int index)>();
             Dictionary<int, RectangleF> backSourceRects = new Dictionary<int, RectangleF>();
-            for(int i = 0; i < 40; i++) { cardImages.Add((cardsI_Id, i)); }
-            backSourceRects.Add(cardsI_Id, new RectangleF(cardSizeImg.X * 40, 0, cardSizeImg.X, cardSizeImg.Y));
-            for (int i = 0; i < 30; i++) { cardImages.Add((cardsII_Id, i)); }
-            backSourceRects.Add(cardsII_Id, new RectangleF(cardSizeImg.X * 30, 0, cardSizeImg.X, cardSizeImg.Y));
             for (int i = 0; i < 20; i++) { cardImages.Add((cardsIII_Id, i)); }
             backSourceRects.Add(cardsIII_Id, new RectangleF(cardSizeImg.X * 20, 0, cardSizeImg.X, cardSizeImg.Y));
+            for (int i = 0; i < 30; i++) { cardImages.Add((cardsII_Id, i)); }
+            backSourceRects.Add(cardsII_Id, new RectangleF(cardSizeImg.X * 30, 0, cardSizeImg.X, cardSizeImg.Y));
+            for (int i = 0; i < 40; i++) { cardImages.Add((cardsI_Id, i)); }
+            backSourceRects.Add(cardsI_Id, new RectangleF(cardSizeImg.X * 40, 0, cardSizeImg.X, cardSizeImg.Y));
             int nobels_Id = imageId;
             images.Add(nobels_Id, "Nobels.png");
             imageId++;
