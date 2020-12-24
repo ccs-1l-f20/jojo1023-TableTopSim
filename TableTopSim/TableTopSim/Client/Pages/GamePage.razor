@@ -1,7 +1,7 @@
 ﻿@page "/Game/{RoomId:int}/{PlayerId:int}"
-@inject NavigationManager NavigationManager
-@inject HttpClient Http
-@inject GlobalData GlobalData
+@inject NavigationManager NavigationManager;
+@inject HttpClient Http;
+@inject GlobalData GlobalData;
 @using TableTopSim.Client.GameLibComponents
 @using GameLib
 @using TableTopSim.Shared
@@ -12,6 +12,8 @@
 @using TableTopSim.Client.SpecificGame
 @using Newtonsoft.Json;
 @inject Uri WebSocketUri
+@inject IJSRuntime JsRuntime
+@inject Profiler Profiler
 <img src="/images/ImageNotFound.png" asp-append-version="true" @ref="imageNotFound" style="display:none" />
 @if (imageDtos != null)
 {
@@ -39,6 +41,7 @@
     Dictionary<int, ImageDto> imageDtos = null;
     Dictionary<int, ElementReference> imageElementRefs = new Dictionary<int, ElementReference>();
     ElementReference imageNotFound;
+
     //RectSprite rectSprite, rectSprite2, rectSprite3, rectSprite4;
     protected override async Task OnInitializedAsync()
     {
@@ -106,7 +109,8 @@
         //gameManager.OnUpdate += TestUpdate;
 
         Dictionary<int, StackableDataInfo> stackableInfo = JsonConvert.DeserializeObject<Dictionary<int, StackableDataInfo>>(gameInfo.SerializedStackableInfoDictionary);
-        gameProgram = new GameProgram(size, gameInfo.BackroundColor, GlobalData.WebSocket, RoomId, PlayerId, imageElementRefs, imageNotFound, stackableInfo);
+        gameProgram = new GameProgram(size, gameInfo.BackroundColor, GlobalData.WebSocket, RoomId, PlayerId, imageElementRefs, imageNotFound, stackableInfo,
+            JsRuntime, Profiler);
     }
     async Task GetGameImages(int gameId)
     {

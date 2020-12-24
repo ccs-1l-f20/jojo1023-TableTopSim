@@ -2,6 +2,7 @@
 using GameLib.Sprites;
 using MathNet.Numerics.LinearAlgebra;
 using Microsoft.AspNetCore.Components.Web;
+using Microsoft.JSInterop;
 using MyCanvasLib;
 using Newtonsoft.Json;
 using System;
@@ -44,8 +45,13 @@ namespace GameLib
         public Transform BoardTransform { get; set; }
         public Vector2 BoardTransformOrigin { get; set; }
         Random random = new Random();
-        public GameManager(Size size, Color backroundColor, SpriteRefrenceManager spriteRefrenceManager, int playerId)
+        IJSRuntime jsRuntime;
+        Profiler profiler;
+        public GameManager(Size size, Color backroundColor, SpriteRefrenceManager spriteRefrenceManager, int playerId,
+            IJSRuntime jsRuntime, Profiler profiler)
         {
+            this.jsRuntime = jsRuntime;
+            this.profiler = profiler;
             this.size = size;
             BackColor = backroundColor;
             ResetTransform();
@@ -66,28 +72,37 @@ namespace GameLib
             BoardTransformOrigin = new Vector2(size.Width / 2, size.Height / 2);
             BoardTransform = new Transform(BoardTransformOrigin, Vector2.One, 0, null);
         }
+        bool drawTest = true;
         public async Task Update(MyCanvas2DContext context, TimeSpan elapsedTime, CancellationToken ct, MouseState ms, Vector2 mousePos, double mouseWheelUpdate)
         {
             //try
             //{
-                RawMousePos = mousePos;
-                Matrix<float> boardTransform = BoardTransform.GetMatrix();
-                var originMatrix = CreateMatrix.DenseIdentity<float>(3, 3);
-                originMatrix[0, 2] = -BoardTransformOrigin.X;
-                originMatrix[1, 2] = -BoardTransformOrigin.Y;
-                var boardTransformWithOrigin = boardTransform * originMatrix;
-                var invBoardTransform = Transform.InverseTransformMatrix(boardTransformWithOrigin);
-                MousePos = Transform.TransformPoint(invBoardTransform, mousePos);
-                MouseState = ms;
-                OnUpdate?.Invoke(elapsedTime, ms, LastMouseState, mouseWheelUpdate);
+            await profiler.ConsoleTime(jsRuntime, "preProgramUpdate");
+            RawMousePos = mousePos;
+            Matrix<float> boardTransform = BoardTransform.GetMatrix();
+            var originMatrix = CreateMatrix.DenseIdentity<float>(3, 3);
+            originMatrix[0, 2] = -BoardTransformOrigin.X;
+            originMatrix[1, 2] = -BoardTransformOrigin.Y;
+            var boardTransformWithOrigin = boardTransform * originMatrix;
+            var invBoardTransform = Transform.InverseTransformMatrix(boardTransformWithOrigin);
+            MousePos = Transform.TransformPoint(invBoardTransform, mousePos);
+            MouseState = ms;
+            await profiler.ConsoleTimeEnd(jsRuntime, "preProgramUpdate");
+            OnUpdate?.Invoke(elapsedTime, ms, LastMouseState, mouseWheelUpdate);
 
-                bool mouseBlocked = false;
-                MouseOnSprite = null;
-                MouseOnBehindSprite = null;
-                var uiSpriteMatries = SortAndUpdateSprites(ref pvtUiSprites, UISpriteRefrenceManager, false, ref mouseBlocked, elapsedTime, RawMousePos, MouseState, context);
-                var spriteMatries = SortAndUpdateSprites(ref pvtSprites, SpriteRefrenceManager, true, ref mouseBlocked, elapsedTime, MousePos, MouseState, context);
+            await profiler.ConsoleTime(jsRuntime, "postProgramUpdate");
+            await profiler.ConsoleTime(jsRuntime, "postProgramUpdateSortSprites");
+            bool mouseBlocked = false;
+            MouseOnSprite = null;
+            MouseOnBehindSprite = null;
+            var uiSpriteMatries = SortAndUpdateSprites(ref pvtUiSprites, UISpriteRefrenceManager, false, ref mouseBlocked, elapsedTime, RawMousePos, MouseState, context);
+            var spriteMatries = SortAndUpdateSprites(ref pvtSprites, SpriteRefrenceManager, true, ref mouseBlocked, elapsedTime, MousePos, MouseState, context);
 
+            await profiler.ConsoleTimeEnd(jsRuntime, "postProgramUpdateSortSprites");
 
+            if (drawTest)
+            {
+                await profiler.ConsoleTime(jsRuntime, "postProgramPreDraw");
                 for (int i = Sprites.Count - 1; i >= 0; i--)
                 {
                     int add = Sprites[i];
@@ -102,6 +117,11 @@ namespace GameLib
                     await sprite.PreDrawUpdate(context);
                 }
 
+                await profiler.ConsoleTimeEnd(jsRuntime, "postProgramPreDraw");
+
+
+
+                await profiler.ConsoleTime(jsRuntime, "postProgramDraw");
                 await context.BeginBatchAsync();
                 await context.SetFillStyleAsync(BackColor.ToString());
                 await context.SaveAsync();
@@ -131,20 +151,25 @@ namespace GameLib
                 await context.EndBatchAsync();
                 LastMouseState = ms;
                 Keyboard.StateUpdate();
+
+                await profiler.ConsoleTimeEnd(jsRuntime, "postProgramDraw");
+            }
+            drawTest = !drawTest;
             //}
             //catch(Exception e)
             //{
             //    string st = e.StackTrace;
             //    string m = e.Message;
             //}
+            await profiler.ConsoleTimeEnd(jsRuntime, "postProgramUpdate");
         }
         public LayerDepth GetFrontLayerDepth(int ldLength)
         {
             SortSprites(ref pvtSprites, SpriteRefrenceManager);
-            foreach(var s in pvtSprites)
+            foreach (var s in pvtSprites)
             {
                 Sprite sprite = SpriteRefrenceManager.GetSprite(s);
-                if(sprite.LayerDepth.Layers.Count == ldLength)
+                if (sprite.LayerDepth.Layers.Count == ldLength)
                 {
                     return sprite.LayerDepth;
                 }

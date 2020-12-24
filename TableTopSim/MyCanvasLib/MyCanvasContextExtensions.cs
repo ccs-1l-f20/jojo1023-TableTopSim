@@ -16,5 +16,25 @@ namespace MyCanvasLib
         {
             return await new MyCanvas2DContext(canvas).InitializeAsync().ConfigureAwait(false) as MyCanvas2DContext;
         }
+
+        public static MyWebGLContext CreateWebGL(this MyCanvasClass canvas)
+        {
+            return new MyWebGLContext(canvas).InitializeAsync().GetAwaiter().GetResult() as MyWebGLContext;
+        }
+
+        public static async Task<MyWebGLContext> CreateWebGLAsync(this MyCanvasClass canvas)
+        {
+            return await new MyWebGLContext(canvas).InitializeAsync().ConfigureAwait(false) as MyWebGLContext;
+        }
+
+        public static MyWebGLContext CreateWebGL(this MyCanvasClass canvas, WebGLContextAttributes attributes)
+        {
+            return new MyWebGLContext(canvas, attributes).InitializeAsync().GetAwaiter().GetResult() as MyWebGLContext;
+        }
+
+        public static async Task<MyWebGLContext> CreateWebGLAsync(this MyCanvasClass canvas, WebGLContextAttributes attributes)
+        {
+            return await new MyWebGLContext(canvas, attributes).InitializeAsync().ConfigureAwait(false) as MyWebGLContext;
+        }
     }
 }

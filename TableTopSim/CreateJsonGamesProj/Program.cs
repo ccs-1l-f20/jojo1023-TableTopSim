@@ -186,7 +186,7 @@ namespace CreateJsonGamesProj
                 stackableInfo.Add(bId, bInfo);
             }
 
-            return new JsonGame(1, 3, canvasSize, new Color(0, 0, 255), sprites, images, stackableInfo);
+            return new JsonGame(1, 2, canvasSize, new Color(0, 0, 255), sprites, images, stackableInfo);
         }
 
 

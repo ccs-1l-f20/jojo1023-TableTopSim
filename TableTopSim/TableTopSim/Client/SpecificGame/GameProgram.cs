@@ -3,6 +3,7 @@ using GameLib;
 using GameLib.GameSerialization;
 using GameLib.Sprites;
 using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -35,13 +36,18 @@ namespace TableTopSim.Client.SpecificGame
         Size size;
         RectSprite shiftSprite;
         RectSprite centerSprite;
+        IJSRuntime jsRuntime;
+        Profiler profiler;
         internal GameProgram(Size size, Color backroundColor, MyClientWebSocket ws, int roomId, int playerId,
-            Dictionary<int, ElementReference> imageElementRefs, ElementReference imageNotFound, Dictionary<int, StackableDataInfo> stackableInfo)
-        //ElementReference cardBack, ElementReference king, ElementReference queen)
+            Dictionary<int, ElementReference> imageElementRefs, ElementReference imageNotFound, Dictionary<int, StackableDataInfo> stackableInfo,
+            IJSRuntime jsRuntime, Profiler profiler)
         {
             CursorInfo.Init();
+            this.jsRuntime = jsRuntime;
+            this.profiler = profiler;
             this.size = size;
-            Manager = new GameManager(size, backroundColor, new SpriteRefrenceManager(imageElementRefs, imageNotFound, stackableInfo), playerId);
+            Manager = new GameManager(size, backroundColor, new SpriteRefrenceManager(imageElementRefs, imageNotFound, stackableInfo), playerId,
+                jsRuntime, profiler);
             refManager.SpriteAdded += SpriteAdded;
 
             uiRefManager.AddSprite(0,
@@ -76,6 +82,7 @@ namespace TableTopSim.Client.SpecificGame
         }
         void OnRecivedWSMessage(ArraySegment<byte> origMessage)
         {
+            _ = profiler.ConsoleTime(jsRuntime, "recievedWSMessage");
             ArrayWithOffset<byte> message = new ArrayWithOffset<byte>(origMessage.ToArray());
 
             MessageType mt = (MessageType)message[0];
@@ -106,6 +113,7 @@ namespace TableTopSim.Client.SpecificGame
                     updateData = new GameDataUpdate(serializedData, cursorSprites, mt == MessageType.ChangeGameState, discardChanges);
                 }
             }
+            _ = profiler.ConsoleTimeEnd(jsRuntime, "recievedWSMessage");
         }
 
         void SendChangedWs(List<byte> specificSerializedData)
@@ -411,6 +419,8 @@ namespace TableTopSim.Client.SpecificGame
                 gameDataUpdate = updateData;
                 updateData = null;
             }
+            bool hasBigUpdate = gameDataUpdate != null && !gameDataUpdate.IsPartialUpdate;
+            _ = profiler.ConsoleTime(jsRuntime, "gameProgamUpdate BU:" + hasBigUpdate);
             if (gameDataUpdate != null)
             {
                 //Debug.WriteLine("DisC: " + gameDataUpdate.DiscardChanges);
@@ -638,6 +648,7 @@ namespace TableTopSim.Client.SpecificGame
                 var v = s.Visiable;
             }
             ignorePropertyChanged = false;
+            _ = profiler.ConsoleTimeEnd(jsRuntime, "gameProgamUpdate BU:" + hasBigUpdate);
         }
         void DropSelected(int prevSelectedAdd)
         {
