@@ -45,20 +45,23 @@
         NavigationManager.LocationChanged += OnLocationChanged;
         GlobalData.OnBrowserResize += OnBrowserResize;
     }
+    WebGLWrapper glWrap;
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
             await JSRuntime.InvokeVoidAsync("SetFocusTo", globalDiv);
             await OnBrowserResize();
-            context = await canvas.CreateCanvas2DAsync();
-            //StateHasChanged();
+            //context = await canvas.CreateCanvas2DAsync();
+            var gl = await canvas.CreateWebGLAsync();
 
 
 
-            await context.ClearRectAsync(0, 0, Width, Height);
+            glWrap = new WebGLWrapper(gl, 1, 0, 0, 1, Width, Height);
+            await glWrap.Init();
+
+            //await context.ClearRectAsync(0, 0, Width, Height);
             _ = Update(Cts.Token);
-            //await Task.Run(async () => await Update(Cts.Token));
         }
     }
     void OnLocationChanged(object sender, LocationChangedEventArgs args)
@@ -98,28 +101,29 @@
         while (true)
         {
             if (ct.IsCancellationRequested) { break; }
-            if (GameManager != null)
-            {
-                MouseState ms = MouseState.Hover;
-                Vector2 currentMousePos;
-                lock (mouseLo)
-                {
-                    currentMousePos = mousePos;
-                    if (mouseStateQueue.Count == 1)
-                    {
-                        ms = mouseStateQueue.Peek();
-                    }
-                    else if(mouseStateQueue.Count > 1)
-                    {
-                        ms = mouseStateQueue.Dequeue();
-                    }
-                }
-                var mwu = mouseWheelUpdate;
-                mouseWheelUpdate = 0;
-                await GameManager.Update(context, stopwatch.Elapsed, ct, ms, currentMousePos, mwu);
-            }
+            await glWrap.Init();
+            //if (GameManager != null)
+            //{
+            //    MouseState ms = MouseState.Hover;
+            //    Vector2 currentMousePos;
+            //    lock (mouseLo)
+            //    {
+            //        currentMousePos = mousePos;
+            //        if (mouseStateQueue.Count == 1)
+            //        {
+            //            ms = mouseStateQueue.Peek();
+            //        }
+            //        else if(mouseStateQueue.Count > 1)
+            //        {
+            //            ms = mouseStateQueue.Dequeue();
+            //        }
+            //    }
+            //    var mwu = mouseWheelUpdate;
+            //    mouseWheelUpdate = 0;
+            //    await GameManager.Update(context, stopwatch.Elapsed, ct, ms, currentMousePos, mwu);
+            //}
 
-            long previousElapsedMilli = stopwatch.ElapsedMilliseconds;
+            //long previousElapsedMilli = stopwatch.ElapsedMilliseconds;
             stopwatch.Restart();
             await Task.Delay(16, ct);
         }
