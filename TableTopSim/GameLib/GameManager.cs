@@ -148,7 +148,10 @@ namespace GameLib
                 }
 
                 await context.RestoreAsync();
+
+                await profiler.ConsoleTime(jsRuntime, "endBatchDraw");
                 await context.EndBatchAsync();
+                await profiler.ConsoleTimeEnd(jsRuntime, "endBatchDraw");
                 LastMouseState = ms;
                 Keyboard.StateUpdate();
 
